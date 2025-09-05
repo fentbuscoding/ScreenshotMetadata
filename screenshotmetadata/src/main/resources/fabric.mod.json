@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "fentbusgaming.screenshotmetadata",
+  "id": "fentbusgaming_screenshotmetadata",
   "version": "1.21.2-1.0.0",
-  "name": "fentbusgaming.screenshotmetadata",
+  "name": "Screenshot Metadata",
   "description": "Embed metadata in screenshots including username, position, world, biome, shader, and timestamp.",
   "authors": ["fentbusgaming"],
   "contact": {},
@@ -14,5 +14,8 @@
   "depends": {
     "fabricloader": ">=0.14.13",
     "fabric": "*"
-  }
+  },
+  "mixins": [
+    "screenshotmetadata.mixins.json"
+  ]
 }

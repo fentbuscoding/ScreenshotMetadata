@@ -26,8 +26,6 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-	// Screen API
-	modImplementation "net.fabricmc.fabric-api:fabric-screen-api-v1:${project.fabric_screen_version}"
 	modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
 	implementation "ar.com.hjg:pngj:2.1.0"
 }
