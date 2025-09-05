@@ -2,6 +2,7 @@ plugins {
 	id 'fabric-loom' version '1.11-SNAPSHOT'
 	id 'maven-publish'
 	id "org.jetbrains.kotlin.jvm" version "2.2.10"
+	id 'me.modmuss50.mod-publish-plugin' version '0.7.4'
 }
 
 version = project.mod_version
@@ -27,7 +28,6 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 	modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
-	implementation "ar.com.hjg:pngj:2.1.0"
 }
 
 processResources {
@@ -61,8 +61,50 @@ java {
 jar {
 	inputs.property "archivesName", project.base.archivesName
 
-	from("LICENSE") {
+	from("LICENSE.MIT") {
 		rename { "${it}_${inputs.properties.archivesName}"}
+	}
+}
+
+// Publishing configuration for CurseForge and Modrinth
+publishMods {
+	displayName = "Screenshot Metadata v${project.version}"
+	file = remapJar.archiveFile
+	additionalFiles.from(remapSourcesJar.archiveFile)
+	changelog = rootProject.file("CHANGELOG.md").exists() ? rootProject.file("CHANGELOG.md").text : "No changelog provided"
+	type = STABLE
+	modLoaders.add("fabric")
+
+	// CurseForge publishing
+	curseforge {
+		projectId = project.curseforge_id
+		accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
+		
+		minecraftVersions.add(project.minecraft_version)
+		
+		requires {
+			slug = "fabric-api"
+		}
+		
+		optional {
+			slug = "modmenu"
+		}
+	}
+
+	// Modrinth publishing  
+	modrinth {
+		projectId = project.modrinth_id
+		accessToken = providers.environmentVariable("MODRINTH_TOKEN")
+		
+		minecraftVersions.add(project.minecraft_version)
+		
+		requires {
+			slug = "fabric-api"
+		}
+		
+		optional {
+			slug = "modmenu"
+		}
 	}
 }
 
