@@ -1,19 +1,24 @@
 {
   "schemaVersion": 1,
-  "id": "fentbusgaming_screenshotmetadata",
-  "version": "1.21.2-1.0.0",
+  "id": "screenshotmetadata",
+  "version": "1.0.0",
   "name": "Screenshot Metadata",
-  "description": "Embed metadata in screenshots including username, position, world, biome, shader, and timestamp.",
-  "authors": ["fentbusgaming"],
-  "contact": {},
+  "description": "Automatically adds comprehensive metadata to Minecraft screenshots including player info, coordinates, world data, and biome information. Metadata is stored both as PNG text chunks and XMP sidecar files for maximum compatibility.",
+  "authors": ["fentbuscoding"],
+  "contact": {
+    "homepage": "https://github.com/fentbuscoding/screenshot-metadata-mod",
+    "sources": "https://github.com/fentbuscoding/screenshot-metadata-mod"
+  },
   "license": "MIT",
-  "environment": "*",
+  "environment": "client",
   "entrypoints": {
-    "client": ["com.example.screenshotmetadata.ScreenshotMetadataMod"]
+    "client": ["com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod"]
   },
   "depends": {
-    "fabricloader": ">=0.14.13",
-    "fabric": "*"
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.8",
+    "java": ">=21"
   },
   "mixins": [
     "screenshotmetadata.mixins.json"
