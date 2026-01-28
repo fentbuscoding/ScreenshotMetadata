@@ -1,17 +1,21 @@
 package com.fentbuscoding.screenshotmetadata.metadata;
 
 import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageTypeSpecifier;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
-import javax.imageio.IIOImage;
 import javax.imageio.metadata.IIOMetadata;
-import javax.imageio.stream.FileImageOutputStream;
-import javax.imageio.ImageTypeSpecifier;
 import javax.imageio.metadata.IIOMetadataNode;
+import javax.imageio.stream.ImageOutputStream;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -29,79 +33,83 @@ public class PngMetadataWriter {
      * @throws IOException if file operations fail
      */
     public static void writeMetadata(File file, Map<String, String> metadata) throws IOException {
+        if (file == null || metadata == null) {
+            throw new IllegalArgumentException("File and metadata must not be null");
+        }
         if (!file.exists() || !file.getName().toLowerCase().endsWith(".png")) {
             throw new IllegalArgumentException("File must be an existing PNG file: " + file.getPath());
         }
-        
-        ScreenshotMetadataMod.LOGGER.debug("Writing PNG metadata to: {}", file.getName());
-        
-        BufferedImage image = null;
+        if (metadata.isEmpty()) {
+            ScreenshotMetadataMod.LOGGER.debug("No metadata provided for {} - skipping write", file.getName());
+            return;
+        }
+
+        ScreenshotMetadataMod.LOGGER.debug("Writing PNG metadata to: {} ({} entries)", file.getName(), metadata.size());
+
+        Path tempPath = Files.createTempFile(file.getParentFile().toPath(), file.getName(), ".tmp");
+        boolean moved = false;
+
         ImageWriter writer = null;
-        FileImageOutputStream output = null;
-        File tempFile = null;
-        
         try {
-            // Load original image
-            image = ImageIO.read(file);
+            BufferedImage image = ImageIO.read(file);
             if (image == null) {
                 throw new IOException("Could not read image data from: " + file.getName());
             }
-            
-            // Prepare PNG writer
-            writer = ImageIO.getImageWritersByFormatName("png").next();
-            if (writer == null) {
+
+            Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("png");
+            if (!writers.hasNext()) {
                 throw new IOException("No PNG writer available");
             }
-            
+            writer = writers.next();
+
             ImageWriteParam writeParam = writer.getDefaultWriteParam();
             IIOMetadata meta = writer.getDefaultImageMetadata(new ImageTypeSpecifier(image), writeParam);
-            
-            // Build metadata tree with PNG text chunks
+
             String nativeFormat = meta.getNativeMetadataFormatName();
             IIOMetadataNode root = (IIOMetadataNode) meta.getAsTree(nativeFormat);
             IIOMetadataNode textNode = new IIOMetadataNode("tEXt");
-            
-            // Add individual metadata entries
+
+            // Embed user-provided entries
             for (Map.Entry<String, String> entry : metadata.entrySet()) {
                 if (entry.getKey() != null && entry.getValue() != null) {
-                    IIOMetadataNode textEntry = new IIOMetadataNode("tEXtEntry");
-                    textEntry.setAttribute("keyword", entry.getKey());
-                    textEntry.setAttribute("value", entry.getValue());
-                    textNode.appendChild(textEntry);
+                    addTextEntry(textNode, entry.getKey(), entry.getValue());
                 }
             }
-            
-            // Add comprehensive summary entries for better tool compatibility
+
             addStandardTextEntries(textNode, metadata);
-            
+
             root.appendChild(textNode);
             meta.mergeTree(nativeFormat, root);
-            
-            // Write to temporary file first
-            tempFile = new File(file.getParent(), file.getName() + ".tmp");
-            output = new FileImageOutputStream(tempFile);
-            writer.setOutput(output);
-            writer.write(meta, new IIOImage(image, null, meta), writeParam);
-            
+
+            try (ImageOutputStream output = ImageIO.createImageOutputStream(tempPath.toFile())) {
+                writer.setOutput(output);
+                writer.write(meta, new IIOImage(image, null, meta), writeParam);
+            }
+
+            // Replace original file with the updated one, prefer atomic move when supported
+            try {
+                Files.move(tempPath, file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException atomicFailure) {
+                Files.move(tempPath, file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            moved = true;
+
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.error("Failed to write PNG metadata to {}: {}", file.getName(), e.getMessage());
             throw new IOException("Failed to write PNG metadata", e);
         } finally {
-            // Clean up resources
-            if (output != null) {
-                try { output.close(); } catch (IOException ignored) {}
-            }
             if (writer != null) {
                 writer.dispose();
             }
+            if (!moved) {
+                try {
+                    Files.deleteIfExists(tempPath);
+                } catch (IOException cleanupFailure) {
+                    ScreenshotMetadataMod.LOGGER.warn("Could not delete temp file {}: {}", tempPath, cleanupFailure.getMessage());
+                }
+            }
         }
-        
-        // Atomically replace original file
-        if (!file.delete() || !tempFile.renameTo(file)) {
-            if (tempFile.exists()) tempFile.delete();
-            throw new IOException("Could not replace original PNG file: " + file.getName());
-        }
-        
+
         ScreenshotMetadataMod.LOGGER.debug("Successfully wrote PNG metadata to: {}", file.getName());
     }
     

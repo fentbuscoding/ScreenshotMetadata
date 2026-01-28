@@ -5,6 +5,9 @@ import com.fentbuscoding.screenshotmetadata.metadata.PngMetadataWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.XmpSidecarWriter;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.ScreenshotRecorder;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.util.Util;
+import net.minecraft.world.biome.Biome;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -12,6 +15,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.io.File;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -22,6 +27,8 @@ import java.util.concurrent.CompletableFuture;
  */
 @Mixin(ScreenshotRecorder.class)
 public class ScreenshotRecorderMixin {
+
+    private static final String SCREENSHOTS_DIR = "screenshots";
     
     @Inject(method = "saveScreenshot(Ljava/io/File;Lnet/minecraft/client/gl/Framebuffer;Ljava/util/function/Consumer;)V", 
             at = @At("TAIL"))
@@ -36,7 +43,7 @@ public class ScreenshotRecorderMixin {
             } catch (Exception e) {
                 ScreenshotMetadataMod.LOGGER.error("Unexpected error in screenshot metadata processing", e);
             }
-        });
+        }, Util.getIoWorkerExecutor());
     }
     
     /**
@@ -49,6 +56,10 @@ public class ScreenshotRecorderMixin {
             MinecraftClient client = MinecraftClient.getInstance();
             if (client == null || client.player == null) {
                 ScreenshotMetadataMod.LOGGER.warn("Cannot add metadata: client or player is null");
+                return;
+            }
+            if (gameDirectory == null) {
+                ScreenshotMetadataMod.LOGGER.warn("Cannot add metadata: game directory is null");
                 return;
             }
             
@@ -80,28 +91,22 @@ public class ScreenshotRecorderMixin {
      * Finds the newest screenshot file in the screenshots directory
      */
     private static File findNewestScreenshot(File gameDirectory) {
-        File screenshotsDir = new File(gameDirectory, "screenshots");
+        File screenshotsDir = new File(gameDirectory, SCREENSHOTS_DIR);
         if (!screenshotsDir.exists() || !screenshotsDir.isDirectory()) {
             ScreenshotMetadataMod.LOGGER.warn("Screenshots directory not found: {}", screenshotsDir.getPath());
             return null;
         }
         
-        File[] files = screenshotsDir.listFiles((dir, name) -> 
+        File[] files = screenshotsDir.listFiles((dir, name) ->
             name.toLowerCase().endsWith(".png") && !name.startsWith("."));
-        
+
         if (files == null || files.length == 0) {
             return null;
         }
-        
-        // Find the most recently modified file
-        File newest = files[0];
-        for (File file : files) {
-            if (file.lastModified() > newest.lastModified()) {
-                newest = file;
-            }
-        }
-        
-        return newest;
+
+        return Arrays.stream(files)
+                .max(Comparator.comparingLong(File::lastModified))
+                .orElse(null);
     }
     
     /**
@@ -125,11 +130,9 @@ public class ScreenshotRecorderMixin {
             
             // World and biome information
             if (client.world != null && client.player != null) {
-                // World/dimension
                 String worldKey = client.world.getRegistryKey().getValue().toString();
                 metadata.put("World", worldKey);
-                
-                // Biome (cleaned up for readability)
+
                 String biomeName = getBiomeName(client);
                 if (biomeName != null && !biomeName.isEmpty()) {
                     metadata.put("Biome", biomeName);
@@ -155,20 +158,10 @@ public class ScreenshotRecorderMixin {
      */
     private static String getBiomeName(MinecraftClient client) {
         try {
-            String biomeName = client.world.getBiome(client.player.getBlockPos()).toString();
-            
-            // Extract just the biome name from the full reference string
-            if (biomeName.contains("minecraft:")) {
-                int start = biomeName.indexOf("minecraft:") + 10;
-                int end = biomeName.indexOf("]", start);
-                if (end > start) {
-                    biomeName = biomeName.substring(start, end);
-                    // Convert snake_case to Title Case
-                    return formatBiomeName(biomeName);
-                }
-            }
-            
-            return biomeName;
+            RegistryEntry<Biome> biomeEntry = client.world.getBiome(client.player.getBlockPos());
+            return biomeEntry.getKey()
+                    .map(key -> formatBiomeName(key.getValue().getPath()))
+                    .orElse("Unknown");
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.debug("Could not extract biome name", e);
             return "Unknown";
