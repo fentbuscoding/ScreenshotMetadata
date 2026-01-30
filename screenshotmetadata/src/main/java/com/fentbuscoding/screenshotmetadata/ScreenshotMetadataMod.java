@@ -32,9 +32,6 @@ public class ScreenshotMetadataMod implements ClientModInitializer {
     
     @Override
     public void onInitializeClient() {
-        ScreenshotMetadataConfig.load();
-        LOGGER.info("{} v{} initialized! Screenshots will now include comprehensive metadata.", MOD_NAME, MOD_VERSION);
-        LOGGER.info("Metadata includes: Player info, coordinates, world data, biome, and timestamp");
-        LOGGER.info("Stored as both PNG text chunks and XMP sidecar files for maximum compatibility");
+        LOGGER.info("{} v{} initialized.", MOD_NAME, MOD_VERSION);
     }
 }

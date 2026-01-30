@@ -17,6 +17,7 @@ public class ScreenshotMetadataConfig {
     private static final String FILE_NAME = "screenshotmetadata.json";
 
     private static ScreenshotMetadataConfig instance;
+    private static boolean loaded;
 
     public boolean writePngMetadata = true;
     public boolean writeXmpSidecar = true;
@@ -24,8 +25,8 @@ public class ScreenshotMetadataConfig {
     public boolean includeWorldSeed = true;
 
     public static ScreenshotMetadataConfig get() {
-        if (instance == null) {
-            instance = new ScreenshotMetadataConfig();
+        if (instance == null || !loaded) {
+            load();
         }
         return instance;
     }
@@ -38,12 +39,15 @@ public class ScreenshotMetadataConfig {
                 if (instance == null) {
                     instance = new ScreenshotMetadataConfig();
                 }
+                loaded = true;
             } catch (IOException | JsonSyntaxException e) {
                 ScreenshotMetadataMod.LOGGER.warn("Failed to read config, using defaults: {}", e.getMessage());
                 instance = new ScreenshotMetadataConfig();
+                loaded = true;
             }
         } else {
             instance = new ScreenshotMetadataConfig();
+            loaded = true;
             save();
         }
     }

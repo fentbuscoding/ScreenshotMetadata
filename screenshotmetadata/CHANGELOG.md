@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.0.3.9] - 2026-01-30
+
+### Changed
+- Do not store server address metadata for Realms sessions
+
+## [1.0.3.8] - 2026-01-30
+
+### Changed
+- Reduced startup logging and deferred config loading until first use
+
+### Fixed
+- Prevented hard crash if screenshot mixin injection fails by making injections non-fatal
+
+## [1.0.3.7] - 2026-01-30
+
+### Changed
+- Enabled Gradle build cache and configuration cache to speed up builds
+
 ## [1.0.3.6] - 2026-01-30
 
 ### Fixed

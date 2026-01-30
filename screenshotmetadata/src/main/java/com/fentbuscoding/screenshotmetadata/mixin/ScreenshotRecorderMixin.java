@@ -36,8 +36,8 @@ public class ScreenshotRecorderMixin {
     private static final String SCREENSHOTS_DIR = "screenshots";
     private static final ThreadLocal<File> LAST_SCREENSHOT_FILE = new ThreadLocal<>();
     
-        @Inject(method = "saveScreenshot(Ljava/io/File;Lnet/minecraft/client/gl/Framebuffer;Ljava/util/function/Consumer;)V", 
-            at = @At("HEAD"))
+            @Inject(method = "saveScreenshot(Ljava/io/File;Lnet/minecraft/client/gl/Framebuffer;Ljava/util/function/Consumer;)V", 
+                at = @At("HEAD"), require = 0)
     private static void captureScreenshotFile(File gameDirectory, 
                                              net.minecraft.client.gl.Framebuffer framebuffer, 
                                              java.util.function.Consumer<net.minecraft.text.Text> messageReceiver, 
@@ -59,8 +59,8 @@ public class ScreenshotRecorderMixin {
         }
     }
     
-    @Inject(method = "saveScreenshot(Ljava/io/File;Lnet/minecraft/client/gl/Framebuffer;Ljava/util/function/Consumer;)V", 
-            at = @At("TAIL"))
+        @Inject(method = "saveScreenshot(Ljava/io/File;Lnet/minecraft/client/gl/Framebuffer;Ljava/util/function/Consumer;)V", 
+            at = @At("TAIL"), require = 0)
     private static void onScreenshotSaved(File gameDirectory, 
                                          net.minecraft.client.gl.Framebuffer framebuffer, 
                                          java.util.function.Consumer<net.minecraft.text.Text> messageReceiver, 
@@ -258,7 +258,10 @@ public class ScreenshotRecorderMixin {
             } else if (client.getCurrentServerEntry() != null) {
                 metadata.put("ServerType", "Multiplayer");
                 metadata.put("ServerName", client.getCurrentServerEntry().name);
-                metadata.put("ServerAddress", client.getCurrentServerEntry().address);
+                String serverAddress = client.getCurrentServerEntry().address;
+                if (serverAddress != null && !serverAddress.toLowerCase().contains("realms")) {
+                    metadata.put("ServerAddress", serverAddress);
+                }
             }
             
             // Timestamp
