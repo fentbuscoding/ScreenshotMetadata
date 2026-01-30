@@ -34,6 +34,30 @@ import java.util.concurrent.CompletableFuture;
 public class ScreenshotRecorderMixin {
 
     private static final String SCREENSHOTS_DIR = "screenshots";
+    private static final ThreadLocal<File> LAST_SCREENSHOT_FILE = new ThreadLocal<>();
+    
+    @Inject(method = "saveScreenshot(Ljava/io/File;Lnet/minecraft/client/gl/Framebuffer;Ljava/util/function/Consumer;)V", 
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;getIoWorkerExecutor()Ljava/util/concurrent/ExecutorService;", shift = At.Shift.BEFORE))
+    private static void captureScreenshotFile(File gameDirectory, 
+                                             net.minecraft.client.gl.Framebuffer framebuffer, 
+                                             java.util.function.Consumer<net.minecraft.text.Text> messageReceiver, 
+                                             CallbackInfo ci) {
+        try {
+            File screenshotsDir = new File(gameDirectory, SCREENSHOTS_DIR);
+            File[] existingFiles = screenshotsDir.listFiles((dir, name) ->
+                name.toLowerCase().endsWith(".png") && !name.startsWith("."));
+            
+            if (existingFiles != null && existingFiles.length > 0) {
+                File newest = Arrays.stream(existingFiles)
+                    .max(Comparator.comparing(File::getName)
+                        .thenComparingLong(File::lastModified))
+                    .orElse(null);
+                LAST_SCREENSHOT_FILE.set(newest);
+            }
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not capture pre-save state: {}", e.getMessage());
+        }
+    }
     
     @Inject(method = "saveScreenshot(Ljava/io/File;Lnet/minecraft/client/gl/Framebuffer;Ljava/util/function/Consumer;)V", 
             at = @At("TAIL"))
@@ -41,10 +65,13 @@ public class ScreenshotRecorderMixin {
                                          net.minecraft.client.gl.Framebuffer framebuffer, 
                                          java.util.function.Consumer<net.minecraft.text.Text> messageReceiver, 
                                          CallbackInfo ci) {
+        File preSaveNewest = LAST_SCREENSHOT_FILE.get();
+        LAST_SCREENSHOT_FILE.remove();
+        
         // Process metadata asynchronously to avoid blocking the game thread
         CompletableFuture.runAsync(() -> {
             try {
-                processScreenshotMetadata(gameDirectory);
+                processScreenshotMetadata(gameDirectory, preSaveNewest);
             } catch (Exception e) {
                 ScreenshotMetadataMod.LOGGER.error("Unexpected error in screenshot metadata processing", e);
             }
@@ -54,7 +81,7 @@ public class ScreenshotRecorderMixin {
     /**
      * Processes the screenshot metadata addition
      */
-    private static void processScreenshotMetadata(File gameDirectory) {
+    private static void processScreenshotMetadata(File gameDirectory, File preSaveNewest) {
         try {
             ScreenshotMetadataMod.LOGGER.debug("Processing screenshot metadata...");
             
@@ -69,7 +96,7 @@ public class ScreenshotRecorderMixin {
             }
             
             // Find the most recent screenshot file (wait briefly for file to finish writing)
-            File screenshotFile = waitForNewestScreenshot(gameDirectory);
+            File screenshotFile = waitForNewestScreenshot(gameDirectory, preSaveNewest);
             if (screenshotFile == null) {
                 ScreenshotMetadataMod.LOGGER.warn("No screenshot file found to add metadata to");
                 return;
@@ -95,7 +122,7 @@ public class ScreenshotRecorderMixin {
     /**
      * Finds the newest screenshot file in the screenshots directory
      */
-    private static File findNewestScreenshot(File gameDirectory) {
+    private static File findNewestScreenshot(File gameDirectory, File preSaveNewest) {
         File screenshotsDir = new File(gameDirectory, SCREENSHOTS_DIR);
         if (!screenshotsDir.exists() || !screenshotsDir.isDirectory()) {
             ScreenshotMetadataMod.LOGGER.warn("Screenshots directory not found: {}", screenshotsDir.getPath());
@@ -109,6 +136,20 @@ public class ScreenshotRecorderMixin {
             return null;
         }
 
+        // Filter to only files newer than the pre-save newest file
+        if (preSaveNewest != null) {
+            final String preSaveName = preSaveNewest.getName();
+            files = Arrays.stream(files)
+                .filter(f -> f.getName().compareTo(preSaveName) > 0 || 
+                            (f.getName().equals(preSaveName) && f.lastModified() > preSaveNewest.lastModified()))
+                .toArray(File[]::new);
+            
+            if (files.length == 0) {
+                ScreenshotMetadataMod.LOGGER.debug("No new files found after: {}", preSaveName);
+                return null;
+            }
+        }
+
         return Arrays.stream(files)
             .max(Comparator.comparing(File::getName)
                 .thenComparingLong(File::lastModified))
@@ -118,13 +159,13 @@ public class ScreenshotRecorderMixin {
     /**
      * Waits briefly for the newest screenshot file to appear and finish writing.
      */
-    private static File waitForNewestScreenshot(File gameDirectory) {
+    private static File waitForNewestScreenshot(File gameDirectory, File preSaveNewest) {
         final int maxAttempts = 12;
         final long sleepMillis = 200L;
 
         File candidate = null;
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
-            candidate = findNewestScreenshot(gameDirectory);
+            candidate = findNewestScreenshot(gameDirectory, preSaveNewest);
             if (candidate != null && isFileStable(candidate)) {
                 return candidate;
             }
