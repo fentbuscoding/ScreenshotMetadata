@@ -110,8 +110,9 @@ public class ScreenshotRecorderMixin {
         }
 
         return Arrays.stream(files)
-                .max(Comparator.comparingLong(File::lastModified))
-                .orElse(null);
+            .max(Comparator.comparing(File::getName)
+                .thenComparingLong(File::lastModified))
+            .orElse(null);
     }
 
     /**
