@@ -49,10 +49,29 @@ jobs:
         working-directory: screenshotmetadata
         run: ./gradlew build --stacktrace
 
-      - name: Upload test report
-        if: always()
+      - name: Upload JAR
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
-          path: ${{ github.workspace }}/screenshotmetadata/build/reports/tests/test
-          if-no-files-found: ignore
+          name: jar
+          path: screenshotmetadata/build/libs/*.jar
+
+      - name: Publish to Modrinth
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: jTGnYYrK
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: screenshotmetadata/build/libs/*.jar
+          name: ${{ github.ref_name }}
+          version: ${{ github.ref_name }}
+          version-type: release
+          loaders: fabric
+          game-versions: |
+            1.21.11
+          java: 21
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: screenshotmetadata/build/libs/*.jar
