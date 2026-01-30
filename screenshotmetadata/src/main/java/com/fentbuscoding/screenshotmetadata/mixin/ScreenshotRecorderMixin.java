@@ -68,8 +68,8 @@ public class ScreenshotRecorderMixin {
                 return;
             }
             
-            // Find the most recent screenshot file
-            File screenshotFile = findNewestScreenshot(gameDirectory);
+            // Find the most recent screenshot file (wait briefly for file to finish writing)
+            File screenshotFile = waitForNewestScreenshot(gameDirectory);
             if (screenshotFile == null) {
                 ScreenshotMetadataMod.LOGGER.warn("No screenshot file found to add metadata to");
                 return;
@@ -112,6 +112,49 @@ public class ScreenshotRecorderMixin {
         return Arrays.stream(files)
                 .max(Comparator.comparingLong(File::lastModified))
                 .orElse(null);
+    }
+
+    /**
+     * Waits briefly for the newest screenshot file to appear and finish writing.
+     */
+    private static File waitForNewestScreenshot(File gameDirectory) {
+        final int maxAttempts = 12;
+        final long sleepMillis = 200L;
+
+        File candidate = null;
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            candidate = findNewestScreenshot(gameDirectory);
+            if (candidate != null && isFileStable(candidate)) {
+                return candidate;
+            }
+            try {
+                Thread.sleep(sleepMillis);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+
+        return candidate;
+    }
+
+    private static boolean isFileStable(File file) {
+        try {
+            if (!file.exists()) {
+                return false;
+            }
+            long size1 = file.length();
+            long time1 = file.lastModified();
+            if (size1 <= 0L) {
+                return false;
+            }
+            Thread.sleep(100L);
+            long size2 = file.length();
+            long time2 = file.lastModified();
+            return size1 == size2 && time1 == time2;
+        } catch (Exception e) {
+            return false;
+        }
     }
     
     /**
@@ -299,10 +342,8 @@ public class ScreenshotRecorderMixin {
         ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
         // Add PNG embedded metadata
         if (config.writePngMetadata) {
-            try {
-                PngMetadataWriter.writeMetadata(screenshotFile, metadata);
-            } catch (Exception e) {
-                ScreenshotMetadataMod.LOGGER.error("Failed to write PNG metadata to {}", screenshotFile.getName(), e);
+            if (!writePngMetadataWithRetry(screenshotFile, metadata)) {
+                ScreenshotMetadataMod.LOGGER.error("Failed to write PNG metadata to {}", screenshotFile.getName());
             }
         }
         
@@ -323,5 +364,28 @@ public class ScreenshotRecorderMixin {
                 ScreenshotMetadataMod.LOGGER.error("Failed to create JSON sidecar for {}", screenshotFile.getName(), e);
             }
         }
+    }
+
+    private static boolean writePngMetadataWithRetry(File screenshotFile, Map<String, String> metadata) {
+        final int maxAttempts = 3;
+        final long sleepMillis = 200L;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                PngMetadataWriter.writeMetadata(screenshotFile, metadata);
+                return true;
+            } catch (Exception e) {
+                ScreenshotMetadataMod.LOGGER.debug("PNG metadata write attempt {} failed for {}: {}",
+                    attempt, screenshotFile.getName(), e.getMessage());
+                try {
+                    Thread.sleep(sleepMillis);
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+
+        return false;
     }
 }
