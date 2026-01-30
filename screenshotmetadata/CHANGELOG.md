@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.0.3.1] - 2026-01-30
+
+### Fixed
+- **Critical Bug**: Mod was writing metadata to old screenshot files instead of newly created ones
+  - Implemented pre-save state capture to identify existing files before screenshot save
+  - Added filtering logic to only process newly created screenshots
+  - Fixes issue where metadata appeared on wrong screenshots when taking multiple in quick succession
+- **ModMenu Crash**: Fixed IllegalStateException "Can only blur once per frame" in ModMenu integration
+  - Reordered render() calls to prevent double background blur
+  - Ensures compatibility with ModMenu screen rendering
+
+### Changed
+- Improved file detection algorithm to use pre-save file state
+- Enhanced screenshot file selection to lexicographically compare filenames (which contain timestamps)
+- Updated to Minecraft 1.21.11 with Fabric Loader 0.18.4
+
+### Technical Improvements
+- Added LAST_SCREENSHOT_FILE ThreadLocal for pre-save state tracking
+- Implemented dual-injection approach: capture state before save, process after save
+- File filtering now compares both filename and lastModified timestamp
+- Maintains existing retry and file stability checking logic
+
 ## [1.0.0] - 2025-09-06
 
 ### Added
