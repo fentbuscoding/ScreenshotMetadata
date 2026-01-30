@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.3.6] - 2026-01-30
+
+### Fixed
+- Fixed a mixin injection failure on screenshot capture by switching to a stable HEAD injection point
+
+## [1.0.3.5] - 2026-01-30
+
+### Fixed
+- Kept the Mod Menu "Done" button visible in smaller windowed resolutions
+
 ## [1.0.3.4] - 2026-01-30
 
 ### Changed

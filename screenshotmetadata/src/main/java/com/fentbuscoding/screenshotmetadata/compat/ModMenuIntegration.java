@@ -31,8 +31,9 @@ public class ModMenuIntegration implements ModMenuApi {
         protected void init() {
             ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
             int centerX = this.width / 2;
-            int startY = 70;
-            int y = startY;
+            int topPadding = 60;
+            int bottomPadding = 30;
+            int y = Math.max(topPadding, 40);
 
             // Metadata Output Format Section
             y += this.addToggleButton(centerX, y, "PNG Metadata", config.writePngMetadata, 
@@ -56,7 +57,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 });
 
             // Metadata Content Section
-            y += 30;
+            y += 26;
             y += this.addToggleButton(centerX, y, "Include World Seed", config.includeWorldSeed, 
                 button -> {
                     config.includeWorldSeed = !config.includeWorldSeed;
@@ -64,9 +65,9 @@ public class ModMenuIntegration implements ModMenuApi {
                 });
 
             // Done button
-            y += 35;
+            int doneY = Math.min(y + 26, this.height - bottomPadding);
             this.addDrawableChild(ButtonWidget.builder(Text.literal("Done").formatted(Formatting.GREEN), button -> this.close())
-                .dimensions(centerX - BUTTON_WIDTH / 2, y, BUTTON_WIDTH, BUTTON_HEIGHT)
+                .dimensions(centerX - BUTTON_WIDTH / 2, doneY, BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
         }
 

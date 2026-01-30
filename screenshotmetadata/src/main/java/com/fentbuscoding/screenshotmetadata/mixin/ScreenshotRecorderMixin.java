@@ -36,8 +36,8 @@ public class ScreenshotRecorderMixin {
     private static final String SCREENSHOTS_DIR = "screenshots";
     private static final ThreadLocal<File> LAST_SCREENSHOT_FILE = new ThreadLocal<>();
     
-    @Inject(method = "saveScreenshot(Ljava/io/File;Lnet/minecraft/client/gl/Framebuffer;Ljava/util/function/Consumer;)V", 
-            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Util;getIoWorkerExecutor()Ljava/util/concurrent/ExecutorService;", shift = At.Shift.BEFORE))
+        @Inject(method = "saveScreenshot(Ljava/io/File;Lnet/minecraft/client/gl/Framebuffer;Ljava/util/function/Consumer;)V", 
+            at = @At("HEAD"))
     private static void captureScreenshotFile(File gameDirectory, 
                                              net.minecraft.client.gl.Framebuffer framebuffer, 
                                              java.util.function.Consumer<net.minecraft.text.Text> messageReceiver, 
