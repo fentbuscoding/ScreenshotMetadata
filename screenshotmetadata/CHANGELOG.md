@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.3.10] - 2026-01-30
+
+### Fixed
+- Fixed Gradle build error in processResources task by using project.version instead of inputs.properties.version for Gradle 9.3.0 compatibility
+
 ## [1.0.3.9] - 2026-01-30
 
 ### Changed
