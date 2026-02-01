@@ -41,7 +41,7 @@ jobs:
       run: cd screenshotmetadata && ./gradlew clean build --no-configuration-cache
       
     - name: Publish to CurseForge and Modrinth
-      if: secrets.CURSEFORGE_TOKEN != '' && secrets.MODRINTH_TOKEN != ''
+      if: env.CURSEFORGE_TOKEN != '' && env.MODRINTH_TOKEN != ''
       run: cd screenshotmetadata && ./gradlew publishMods --no-configuration-cache
       env:
         CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
