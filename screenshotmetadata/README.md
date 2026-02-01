@@ -2,121 +2,148 @@
 
 A Minecraft Fabric mod that automatically adds comprehensive metadata to your screenshots, making them easier to organize and search.
 
-## 🎯 Features
+## Features
 
-### **Comprehensive Metadata Collection**
-- **Player Information**: Username and current coordinates (X, Y, Z)
-- **World Data**: Current dimension/world (Overworld, Nether, End)
-- **Environment**: Biome information (cleaned up for readability)
-- **Technical**: Timestamp, Minecraft version, mod version
+### Comprehensive Metadata Collection
+- Player Information: Username and current coordinates (X, Y, Z)
+- World Data: Current dimension and world information (Overworld, Nether, End)
+- Environment: Biome information with readable formatting
+- Technical Details: Timestamp, Minecraft version, and mod version
+- Player Status: Health, hunger, potion effects, and equipped items
+- Performance Metrics: Render distance and simulation distance
+- Equipment Details: Full armor and item inventory tracking
 
-### **Dual Storage Format**
-- **PNG Text Chunks**: Embedded directly in image files for technical tools
-- **XMP Sidecar Files**: Separate `.xmp` files for Windows File Explorer visibility
+### Flexible Storage Options
+- PNG Text Chunks: Embedded directly in image files for technical tools
+- XMP Sidecar Files: Separate .xmp files for Windows File Explorer compatibility
+- JSON Sidecar Files: Easy-to-read JSON format for data analysis
 
-### **File Explorer Integration**
-- Metadata appears in Windows File Explorer Properties → Details
+### File Explorer Integration
+- View metadata in Windows File Explorer Properties - Details tab
 - Professional XMP format recognized by photo management software
-- Easy to search and organize your screenshot collection
+- Easily search and organize your screenshot collection
 
-## 📸 What You Get
+## What Gets Saved
 
 When you take a screenshot, the mod creates:
-- `screenshot.png` - Your image with embedded metadata
-- `screenshot.xmp` - Metadata file for File Explorer visibility
+- screenshot.png: Your image with embedded metadata
+- screenshot.xmp: Metadata in XMP format for file managers
+- screenshot.json: Metadata in JSON format for easy parsing
 
-### **Example Metadata**
-- **Title**: "Minecraft - Player900"
-- **Description**: "Minecraft Screenshot - Player: Player900 | World: minecraft:overworld | Coords: (122, 80, 172) | Biome: Frozen Ocean"
-- **Creator**: Your Minecraft username
-- **Coordinates**: Individual X, Y, Z values
-- **Timestamp**: When the screenshot was taken
+### Example Metadata Collected
+- Username and player UUID
+- Player coordinates (X, Y, Z) and direction (Yaw/Pitch)
+- Current biome and dimension
+- World name and server information
+- Current game time and timestamp
+- Health and hunger levels
+- Active potion effects with durations
+- Equipped armor and items
+- Render and simulation distances
+- World difficulty and game mode
 
-## 🚀 Installation
+## Installation
 
-1. **Requirements**: 
-   - Minecraft 1.21.11
-   - Fabric Loader 0.18.4+
-   - Fabric API
-   - Java 21+
+### Requirements
+- Minecraft 1.21.11
+- Fabric Loader 0.18.4 or newer
+- Fabric API
+- Java 21 or newer
 
-2. **Install**:
-   - Download the mod JAR file
-   - Place in your `mods` folder
-   - Launch Minecraft with Fabric
+### Setup Steps
+1. Download the mod JAR file
+2. Place it in your mods folder (usually .minecraft/mods/)
+3. Launch Minecraft with Fabric Loader
+4. Optional: Install ModMenu for easy configuration
 
-## 🎮 Usage
+## Usage
 
-1. **Take screenshots normally** (F2 key)
-2. **Find your screenshots** in `.minecraft/screenshots/`
-3. **View metadata** by right-clicking → Properties → Details in File Explorer
-4. **Technical users** can read PNG text chunks with tools like ExifTool
+### Basic Usage
+1. Press F2 to take a screenshot
+2. Find your screenshots in .minecraft/screenshots/
+3. Right-click any screenshot and select Properties
+4. View metadata in the Details tab
 
-## 🔧 Technical Details
+### Configuration
+1. Open Minecraft
+2. From main menu, click Mods
+3. Find Screenshot Metadata and click Config
+4. Toggle options for what metadata to include
+5. Click Save and Close
 
-### **Architecture**
-- **Package**: `com.fentbuscoding.screenshotmetadata`
-- **Main Class**: `ScreenshotMetadataMod`
-- **Mixin**: Intercepts vanilla screenshot saving process
-- **Async Processing**: Metadata addition doesn't block game performance
+### Toggle Options
+- PNG Metadata: Embed data in PNG chunks
+- XMP Sidecar: Create XMP companion files
+- JSON Sidecar: Create JSON companion files
+- World Seed: Include the world seed
+- Biome Info: Record biome name and ID
+- Coordinates: Log player position and angles
+- Health and Hunger: Track health and food status
+- Potion Effects: Record active status effects
+- Armor and Items: Log equipped items and armor
+- Performance Metrics: Record render and simulation distance
 
-### **Metadata Storage**
-- **PNG tEXt Chunks**: Standard PNG metadata format
-- **XMP Sidecars**: Adobe XMP standard with Dublin Core metadata
-- **Custom Namespace**: `http://fentbuscoding.com/minecraft/ns/` for Minecraft-specific data
+## Technical Details
 
-### **Error Handling**
+### Architecture
+- Package: com.fentbuscoding.screenshotmetadata
+- Main Class: ScreenshotMetadataMod
+- Mixin Target: Intercepts vanilla screenshot saving process
+- Processing: Async to prevent game performance impact
+
+### Metadata Storage Formats
+- PNG tEXt Chunks: Standard PNG metadata format
+- XMP Sidecars: Adobe XMP standard with Dublin Core metadata
+- JSON Sidecars: Simple key-value pairs for easy parsing
+
+### Error Handling
 - Comprehensive logging with SLF4J
-- Graceful failure - screenshots work even if metadata fails
+- Graceful failure: screenshots work even if metadata fails
 - Async processing prevents game thread blocking
+- File detection with exponential backoff retry logic
+- Fallback file location checking (temp directory, downloads folder)
 
-## 🛠️ Development
+## Development
 
-### **Building**
-```bash
+### Build the Project
+```
 ./gradlew build
 ```
 
-### **Testing**
-```bash
+### Run in Development
+```
 ./gradlew runClient
 ```
 
-### **Structure**
+### Project Structure
 ```
 src/main/java/com/fentbuscoding/screenshotmetadata/
-├── ScreenshotMetadataMod.java          # Main mod class
-├── metadata/
-│   ├── PngMetadataWriter.java          # PNG text chunk writer
-│   └── XmpSidecarWriter.java           # XMP sidecar file creator
-└── mixin/
-    └── ScreenshotRecorderMixin.java    # Screenshot interception
+- ScreenshotMetadataMod.java: Main mod initialization
+- config/: Configuration management
+- metadata/: Metadata writers (PNG, XMP, JSON)
+- mixin/: Minecraft interception hooks
+- compat/: Mod compatibility (ModMenu integration)
 ```
 
-## 📝 License
+## License
 
 MIT License - See LICENSE file for details.
 
-## 🤝 Contributing
-
-Contributions welcome! Please read the contributing guidelines and submit pull requests.
-
-## 📋 Version History
-
-- **v1.0.0**: Initial release with PNG and XMP metadata support
-  - Comprehensive metadata collection
-  - File Explorer integration
-  - Async processing
-  - Professional code structure
-
-## 🐛 Issues
+## Support
 
 Report issues on the GitHub repository with:
-- Minecraft version
-- Fabric Loader version
-- Log files (with debug enabled)
-- Steps to reproduce
+- Your Minecraft version
+- Your Fabric Loader version
+- The complete log file (logs/latest.log)
+- Steps to reproduce the issue
+
+## Contributing
+
+Contributions are welcome! Please submit pull requests with:
+- Clear description of changes
+- Tests where applicable
+- Updated documentation
 
 ---
 
-**Made with ❤️ by fentbuscoding**
+Made by fentbuscoding

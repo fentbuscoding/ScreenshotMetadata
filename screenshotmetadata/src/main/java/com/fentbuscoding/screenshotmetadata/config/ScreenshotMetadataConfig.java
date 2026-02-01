@@ -24,6 +24,15 @@ public class ScreenshotMetadataConfig {
     public boolean writeJsonSidecar = true;
     public boolean includeWorldSeed = true;
 
+    // Metadata filtering options
+    public boolean includePerformanceMetrics = true;
+    public boolean includePlayerStatus = true;
+    public boolean includeEquipment = true;
+    public boolean includePotionEffects = true;
+    public boolean includeCoordinates = true;
+    public boolean includeBiomeInfo = true;
+    public boolean includeWeatherInfo = true;
+
     public static ScreenshotMetadataConfig get() {
         if (instance == null || !loaded) {
             load();

@@ -158,26 +158,76 @@ public class ScreenshotRecorderMixin {
 
     /**
      * Waits briefly for the newest screenshot file to appear and finish writing.
+     * Uses exponential backoff retry strategy.
      */
     private static File waitForNewestScreenshot(File gameDirectory, File preSaveNewest) {
-        final int maxAttempts = 12;
-        final long sleepMillis = 200L;
+        final int maxAttempts = 15;
+        final long initialSleepMillis = 100L;
+        final double backoffMultiplier = 1.5;
+        final long maxSleepMillis = 1000L;
 
         File candidate = null;
+        long sleepMillis = initialSleepMillis;
+        
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
             candidate = findNewestScreenshot(gameDirectory, preSaveNewest);
             if (candidate != null && isFileStable(candidate)) {
+                ScreenshotMetadataMod.LOGGER.debug("Found screenshot file on attempt {}", attempt + 1);
                 return candidate;
             }
+            
             try {
                 Thread.sleep(sleepMillis);
+                sleepMillis = Math.min((long)(sleepMillis * backoffMultiplier), maxSleepMillis);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
             }
         }
 
+        // Fallback: Check common locations if screenshot not found in screenshots dir
+        if (candidate == null) {
+            candidate = findScreenshotInFallbackLocations(gameDirectory, preSaveNewest);
+        }
+
         return candidate;
+    }
+
+    /**
+     * Attempts to find screenshot in common fallback locations if primary method fails.
+     */
+    private static File findScreenshotInFallbackLocations(File gameDirectory, File preSaveNewest) {
+        File[] fallbackDirs = {
+            gameDirectory,  // Game directory root
+            new File(System.getProperty("user.home"), "Downloads"),  // Downloads folder
+            new File(System.getProperty("java.io.tmpdir"))  // System temp directory
+        };
+
+        long preSaveTime = preSaveNewest != null ? preSaveNewest.lastModified() : System.currentTimeMillis() - 5000;
+
+        for (File fallbackDir : fallbackDirs) {
+            if (!fallbackDir.exists() || !fallbackDir.isDirectory()) {
+                continue;
+            }
+
+            File[] pngFiles = fallbackDir.listFiles((dir, name) ->
+                name.toLowerCase().endsWith(".png") && 
+                !name.startsWith(".") && 
+                new File(dir, name).lastModified() > preSaveTime);
+
+            if (pngFiles != null && pngFiles.length > 0) {
+                File newest = Arrays.stream(pngFiles)
+                    .max(Comparator.comparingLong(File::lastModified))
+                    .orElse(null);
+                
+                if (newest != null && isFileStable(newest)) {
+                    ScreenshotMetadataMod.LOGGER.debug("Found screenshot in fallback location: {}", newest.getAbsolutePath());
+                    return newest;
+                }
+            }
+        }
+
+        return null;
     }
 
     private static boolean isFileStable(File file) {
@@ -204,6 +254,7 @@ public class ScreenshotRecorderMixin {
      */
     private static Map<String, String> collectMetadata(MinecraftClient client) {
         Map<String, String> metadata = new HashMap<>();
+        ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
         
         try {
             // Player information
@@ -215,7 +266,7 @@ public class ScreenshotRecorderMixin {
             }
             
             // Player coordinates
-            if (client.player != null) {
+            if (config.includeCoordinates && client.player != null) {
                 metadata.put("X", String.valueOf((int) client.player.getX()));
                 metadata.put("Y", String.valueOf((int) client.player.getY()));
                 metadata.put("Z", String.valueOf((int) client.player.getZ()));
@@ -231,13 +282,15 @@ public class ScreenshotRecorderMixin {
                 metadata.put("DimensionId", worldKey);
                 metadata.put("Dimension", formatDimensionName(worldKey));
 
-                String biomeName = getBiomeName(client);
-                if (biomeName != null && !biomeName.isEmpty()) {
-                    metadata.put("Biome", biomeName);
-                }
-                String biomeId = getBiomeId(client);
-                if (biomeId != null && !biomeId.isEmpty()) {
-                    metadata.put("BiomeId", biomeId);
+                if (config.includeBiomeInfo) {
+                    String biomeName = getBiomeName(client);
+                    if (biomeName != null && !biomeName.isEmpty()) {
+                        metadata.put("Biome", biomeName);
+                    }
+                    String biomeId = getBiomeId(client);
+                    if (biomeId != null && !biomeId.isEmpty()) {
+                        metadata.put("BiomeId", biomeId);
+                    }
                 }
 
                 long timeOfDay = client.world.getTimeOfDay() % 24000L;
@@ -250,7 +303,7 @@ public class ScreenshotRecorderMixin {
                 if (client.getServer() != null && client.getServer().getSaveProperties() != null) {
                     metadata.put("WorldName", client.getServer().getSaveProperties().getLevelName());
                 }
-                if (ScreenshotMetadataConfig.get().includeWorldSeed
+                if (config.includeWorldSeed
                     && client.getServer() != null && client.getServer().getOverworld() != null) {
                     metadata.put("WorldSeed", String.valueOf(client.getServer().getOverworld().getSeed()));
                 }
@@ -273,12 +326,135 @@ public class ScreenshotRecorderMixin {
             metadata.put("MinecraftVersion", client.getGameVersion());
             metadata.put("ModVersion", ScreenshotMetadataMod.MOD_VERSION);
             metadata.put("ModId", ScreenshotMetadataMod.MOD_ID);
+
+            // Player Status - Game Mode
+            if (config.includePlayerStatus && client.player != null && client.world != null) {
+                try {
+                    // Try to get difficulty as proxy for game mode info
+                    metadata.put("Difficulty", client.world.getDifficulty().getName());
+                } catch (Exception e) {
+                    ScreenshotMetadataMod.LOGGER.debug("Could not get difficulty", e);
+                }
+            }
+
+            // Player Health and Hunger
+            if (config.includePlayerStatus && client.player != null) {
+                metadata.put("Health", String.format("%.1f", client.player.getHealth()));
+                metadata.put("MaxHealth", String.format("%.1f", client.player.getMaxHealth()));
+                metadata.put("HungerLevel", String.valueOf(client.player.getHungerManager().getFoodLevel()));
+                metadata.put("Saturation", String.format("%.1f", client.player.getHungerManager().getSaturationLevel()));
+            }
+
+            // Performance Metrics
+            if (config.includePerformanceMetrics) {
+                // Record current time for FPS calculation (approximate)
+                long currentTime = System.currentTimeMillis();
+                metadata.put("CaptureTimeMs", String.valueOf(currentTime));
+                
+                if (client.options != null) {
+                    metadata.put("RenderDistance", String.valueOf(client.options.getViewDistance().getValue()));
+                    if (client.options.getSimulationDistance() != null) {
+                        metadata.put("SimulationDistance", String.valueOf(client.options.getSimulationDistance().getValue()));
+                    }
+                }
+            }
+
+            // Equipped Items
+            if (config.includeEquipment && client.player != null) {
+                net.minecraft.item.ItemStack mainHand = client.player.getMainHandStack();
+                if (mainHand != null && !mainHand.isEmpty()) {
+                    metadata.put("MainHandItem", mainHand.getItem().getName().getString());
+                    metadata.put("MainHandCount", String.valueOf(mainHand.getCount()));
+                }
+
+                net.minecraft.item.ItemStack offHand = client.player.getOffHandStack();
+                if (offHand != null && !offHand.isEmpty()) {
+                    metadata.put("OffHandItem", offHand.getItem().getName().getString());
+                    metadata.put("OffHandCount", String.valueOf(offHand.getCount()));
+                }
+            }
+
+            // Armor and Equipment
+            if (config.includeEquipment && client.player != null) {
+                addArmorMetadata(client.player, metadata);
+            }
+
+            // Active Potion Effects
+            if (config.includePotionEffects && client.player != null) {
+                addPotionEffectsMetadata(client.player, metadata);
+            }
             
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.error("Error collecting metadata", e);
         }
         
         return metadata;
+    }
+
+    /**
+     * Adds armor and equipment details to metadata
+     */
+    private static void addArmorMetadata(net.minecraft.entity.player.PlayerEntity player, Map<String, String> metadata) {
+        try {
+            net.minecraft.entity.EquipmentSlot[] armorSlots = {
+                net.minecraft.entity.EquipmentSlot.HEAD,
+                net.minecraft.entity.EquipmentSlot.CHEST,
+                net.minecraft.entity.EquipmentSlot.LEGS,
+                net.minecraft.entity.EquipmentSlot.FEET
+            };
+
+            String[] armorNames = {"Head", "Chest", "Legs", "Feet"};
+
+            for (int i = 0; i < armorSlots.length; i++) {
+                net.minecraft.item.ItemStack armor = player.getEquippedStack(armorSlots[i]);
+                if (armor != null && !armor.isEmpty()) {
+                    metadata.put("Armor" + armorNames[i], armor.getItem().getName().getString());
+                }
+            }
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not collect armor metadata", e);
+        }
+    }
+
+    /**
+     * Adds active potion effects to metadata
+     */
+    private static void addPotionEffectsMetadata(net.minecraft.entity.player.PlayerEntity player, Map<String, String> metadata) {
+        try {
+            java.util.Collection<net.minecraft.entity.effect.StatusEffectInstance> effects = player.getStatusEffects();
+            
+            if (effects.isEmpty()) {
+                metadata.put("PotionEffects", "None");
+                return;
+            }
+
+            StringBuilder effectsBuilder = new StringBuilder();
+            int effectCount = 0;
+
+            for (net.minecraft.entity.effect.StatusEffectInstance effect : effects) {
+                if (effectCount > 0) {
+                    effectsBuilder.append(", ");
+                }
+
+                String effectName = effect.getEffectType().value().getName().getString();
+                int amplifier = effect.getAmplifier();
+                int duration = effect.getDuration();
+
+                effectsBuilder.append(effectName);
+                if (amplifier > 0) {
+                    effectsBuilder.append(" ").append(amplifier + 1);
+                }
+                effectsBuilder.append(" (").append(duration).append("t)");
+                effectCount++;
+            }
+
+            if (effectCount > 0) {
+                metadata.put("PotionEffects", effectsBuilder.toString());
+                metadata.put("PotionEffectCount", String.valueOf(effectCount));
+            }
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not collect potion effects metadata", e);
+        }
     }
     
     /**

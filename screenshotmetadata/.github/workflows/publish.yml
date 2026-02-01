@@ -41,6 +41,7 @@ jobs:
       run: ./gradlew clean build
       
     - name: Publish to CurseForge and Modrinth
+      if: secrets.CURSEFORGE_TOKEN != '' && secrets.MODRINTH_TOKEN != ''
       run: ./gradlew publishMods
       env:
         CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
