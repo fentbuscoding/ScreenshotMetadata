@@ -2,6 +2,12 @@
 
 All notable changes to the Screenshot Metadata Mod are documented here. This changelog focuses on functional changes to the mod itself.
 
+## [1.0.4.1]
+
+### Fixed
+- Fixed blur effect crash in ModMenu config screen by preventing double blur rendering
+- Fixed Gradle configuration cache compatibility issue in processResources task
+
 ## [1.0.4]
 
 ### Added
