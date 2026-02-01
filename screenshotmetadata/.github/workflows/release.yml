@@ -1,22 +1,19 @@
-name: Publish Mod
+name: Release
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to publish'
-        required: true
-        default: '1.0.0'
+  push:
+    tags:
+      - 'v*.*.*'
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
       
     - name: Set up JDK 21
       uses: actions/setup-java@v4
@@ -40,15 +37,18 @@ jobs:
     - name: Build mod
       run: cd screenshotmetadata && ./gradlew clean build --no-configuration-cache
       
-    - name: Publish to CurseForge and Modrinth
-      if: secrets.CURSEFORGE_TOKEN != '' && secrets.MODRINTH_TOKEN != ''
-      run: cd screenshotmetadata && ./gradlew publishMods --no-configuration-cache
-      env:
-        CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
-        MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+    - name: Extract version from tag
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
         
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
       with:
-        name: mod-jars
-        path: screenshotmetadata/build/libs/*.jar
+        files: screenshotmetadata/build/libs/*.jar
+        body_path: screenshotmetadata/CHANGELOG.md
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
