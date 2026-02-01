@@ -8,6 +8,10 @@ All notable changes to the Screenshot Metadata Mod are documented here. This cha
 - Fixed blur effect crash in ModMenu config screen by preventing double blur rendering
 - Fixed Gradle configuration cache compatibility issue in processResources task
 
+### Improved
+- Optimized config screen rendering to reduce FPS impact - eliminated redundant render calls
+- Improved scroll performance by removing unnecessary UI reconstruction on every scroll event
+
 ## [1.0.4]
 
 ### Added

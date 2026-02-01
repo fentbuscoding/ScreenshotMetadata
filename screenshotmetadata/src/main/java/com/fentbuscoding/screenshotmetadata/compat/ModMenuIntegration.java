@@ -196,8 +196,6 @@ public class ModMenuIntegration implements ModMenuApi {
 
         @Override
         public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-            super.render(context, mouseX, mouseY, delta);
-            
             // Modern gradient header background
             context.fill(0, 0, this.width, 65, 0xFF1a1a2e);
             context.fill(0, 65, this.width, 66, 0xFF16213e);
@@ -217,7 +215,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 Text.literal("Version " + ScreenshotMetadataMod.MOD_VERSION).formatted(Formatting.DARK_GRAY), 
                 this.width / 2, 45, 0x666666);
 
-            // Draw content
+            // Draw content with scissor for scrolling
             context.enableScissor(0, 70, this.width, this.height - 70);
             super.render(context, mouseX, mouseY, delta);
             context.disableScissor();
@@ -234,7 +232,6 @@ public class ModMenuIntegration implements ModMenuApi {
         @Override
         public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
             scrollOffset = Math.max(0, Math.min(scrollOffset - (int)(verticalAmount * 10), 200));
-            this.init();
             return true;
         }
     }
