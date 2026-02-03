@@ -636,14 +636,35 @@ public class ScreenshotRecorderMixin {
 
         List<String> resourcePacks = collectEnabledResourcePacks(client);
         String shaderPack = detectShaderPack();
-        ModListData modList = collectModList();
+
+        List<String> modEntries = new ArrayList<>();
+        int modCount = -1;
+        boolean modListTruncated = false;
+
+        try {
+            List<ModContainer> mods = new ArrayList<>(FabricLoader.getInstance().getAllMods());
+            mods.sort(Comparator.comparing(mod -> mod.getMetadata().getId()));
+            modCount = mods.size();
+
+            for (ModContainer mod : mods) {
+                if (modEntries.size() >= MAX_MOD_LIST_ENTRIES) {
+                    modListTruncated = true;
+                    break;
+                }
+                String id = mod.getMetadata().getId();
+                String version = mod.getMetadata().getVersion().getFriendlyString();
+                modEntries.add(id + "@" + version);
+            }
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not collect mod list", e);
+        }
 
         return new JsonSidecarContext(
             resourcePacks,
             shaderPack,
-            modList.entries,
-            modList.totalCount,
-            modList.truncated
+            modEntries,
+            modCount,
+            modListTruncated
         );
     }
 
@@ -689,32 +710,6 @@ public class ScreenshotRecorderMixin {
             ScreenshotMetadataMod.LOGGER.debug("Could not collect resource packs", e);
         }
         return packs;
-    }
-
-    private static ModListData collectModList() {
-        List<String> entries = new ArrayList<>();
-        int totalCount = 0;
-        boolean truncated = false;
-
-        try {
-            List<ModContainer> mods = new ArrayList<>(FabricLoader.getInstance().getAllMods());
-            mods.sort(Comparator.comparing(mod -> mod.getMetadata().getId()));
-            totalCount = mods.size();
-
-            for (ModContainer mod : mods) {
-                if (entries.size() >= MAX_MOD_LIST_ENTRIES) {
-                    truncated = true;
-                    break;
-                }
-                String id = mod.getMetadata().getId();
-                String version = mod.getMetadata().getVersion().getFriendlyString();
-                entries.add(id + "@" + version);
-            }
-        } catch (Exception e) {
-            ScreenshotMetadataMod.LOGGER.debug("Could not collect mod list", e);
-        }
-
-        return new ModListData(entries, totalCount, truncated);
     }
 
     private static String detectShaderPack() {
@@ -783,18 +778,6 @@ public class ScreenshotRecorderMixin {
         }
         String fallback = pack.toString();
         return fallback != null && !fallback.isBlank() ? fallback : null;
-    }
-
-    private static final class ModListData {
-        private final List<String> entries;
-        private final int totalCount;
-        private final boolean truncated;
-
-        private ModListData(List<String> entries, int totalCount, boolean truncated) {
-            this.entries = entries;
-            this.totalCount = totalCount;
-            this.truncated = truncated;
-        }
     }
 
     private static boolean writePngMetadataWithRetry(File screenshotFile, Map<String, String> metadata) {
