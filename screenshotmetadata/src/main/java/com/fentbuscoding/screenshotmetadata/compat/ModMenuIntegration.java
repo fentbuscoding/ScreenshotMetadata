@@ -367,6 +367,12 @@ public class ModMenuIntegration implements ModMenuApi {
         }
 
         @Override
+        public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+            // Avoid applyBlur to prevent "Can only blur once per frame" crashes.
+            this.renderInGameBackground(context);
+        }
+
+        @Override
         public boolean shouldCloseOnEsc() {
             return true;
         }
