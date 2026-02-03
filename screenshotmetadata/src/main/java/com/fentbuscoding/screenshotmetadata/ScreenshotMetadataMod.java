@@ -45,7 +45,7 @@ public class ScreenshotMetadataMod implements ClientModInitializer {
             "key.screenshotmetadata.add_tags",
             InputUtil.Type.KEYSYM,
             GLFW.GLFW_KEY_T,
-            "category.screenshotmetadata"
+            KeyBinding.Category.MISC
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

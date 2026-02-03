@@ -329,7 +329,7 @@ public class ModMenuIntegration implements ModMenuApi {
         public void render(DrawContext context, int mouseX, int mouseY, float delta) {
             updateSmoothScroll();
 
-            this.renderBackground(context);
+            this.renderBackground(context, mouseX, mouseY, delta);
 
             // Modern header background (smaller to avoid cutting content)
             context.fill(0, 0, this.width, headerHeight, 0xCC14192B);

@@ -67,7 +67,7 @@ public class TagInputScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        this.renderBackground(context);
+        this.renderBackground(context, mouseX, mouseY, delta);
         super.render(context, mouseX, mouseY, delta);
 
         int centerX = this.width / 2;
@@ -78,19 +78,8 @@ public class TagInputScreen extends Screen {
     }
 
     @Override
-    public void tick() {
-        if (tagField != null) {
-            tagField.tick();
-        }
-    }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 256) { // ESC
-            closeScreen();
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+    public void close() {
+        closeScreen();
     }
 
     @Override
