@@ -2,6 +2,17 @@
 
 All notable changes to the Screenshot Metadata Mod are documented here. This changelog focuses on functional changes to the mod itself.
 
+## [1.1.0] - 2026-02-03
+
+### Added
+- Privacy mode toggle (obfuscates coords, hides server IP, hashes world seed)
+- Screenshot filename templates with presets
+- Tag input screen (keybind) with tag export to JSON/XMP
+- ModMenu tooltips and collapsible sections
+
+### Fixed
+- Mixin package crash when loading helper classes in the mixin package
+
 ## [1.0.4.2] - 2026-02-03
 
 ### Added

@@ -4,6 +4,8 @@ import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -91,6 +93,11 @@ public class JsonSidecarWriter {
         }
         json.append("}");
 
+        List<String> tags = extractTags(metadata);
+        if (!tags.isEmpty()) {
+            appendTags(json, tags);
+        }
+
         if (context != null) {
             appendModpackContext(json, context);
         }
@@ -127,6 +134,37 @@ public class JsonSidecarWriter {
 
         appendBooleanField(json, "modListTruncated", context.isModListTruncated(), fieldCount > 0);
         json.append("\n  }");
+    }
+
+    private static void appendTags(StringBuilder json, List<String> tags) {
+        json.append(",\n");
+        json.append("  \"tags\": [");
+        for (int i = 0; i < tags.size(); i++) {
+            if (i > 0) {
+                json.append(", ");
+            }
+            json.append("\"").append(escapeJson(tags.get(i))).append("\"");
+        }
+        json.append("]");
+    }
+
+    private static List<String> extractTags(Map<String, String> metadata) {
+        List<String> tags = new ArrayList<>();
+        if (metadata == null) {
+            return tags;
+        }
+        String raw = metadata.get("Tags");
+        if (raw == null || raw.isBlank()) {
+            return tags;
+        }
+        String[] parts = raw.split(",");
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty() && !tags.contains(trimmed)) {
+                tags.add(trimmed);
+            }
+        }
+        return tags;
     }
 
     private static void appendStringField(StringBuilder json, String key, String value, boolean withComma) {

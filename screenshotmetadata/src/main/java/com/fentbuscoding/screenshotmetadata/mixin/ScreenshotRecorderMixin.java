@@ -20,7 +20,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.io.File;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -115,6 +120,8 @@ public class ScreenshotRecorderMixin {
                 ScreenshotMetadataMod.LOGGER.warn("No metadata collected");
                 return;
             }
+
+            screenshotFile = maybeRenameScreenshot(screenshotFile, metadata);
 
             JsonSidecarContext sidecarContext = collectJsonSidecarContext(client);
 
@@ -276,9 +283,18 @@ public class ScreenshotRecorderMixin {
             
             // Player coordinates
             if (config.includeCoordinates && client.player != null) {
-                metadata.put("X", String.valueOf((int) client.player.getX()));
-                metadata.put("Y", String.valueOf((int) client.player.getY()));
-                metadata.put("Z", String.valueOf((int) client.player.getZ()));
+                int x = (int) client.player.getX();
+                int y = (int) client.player.getY();
+                int z = (int) client.player.getZ();
+                if (config.privacyMode) {
+                    x = roundToNearest(x, 100);
+                    y = roundToNearest(y, 100);
+                    z = roundToNearest(z, 100);
+                    metadata.put("CoordinatesObfuscated", "true");
+                }
+                metadata.put("X", String.valueOf(x));
+                metadata.put("Y", String.valueOf(y));
+                metadata.put("Z", String.valueOf(z));
                 metadata.put("Yaw", String.format("%.1f", client.player.getYaw()));
                 metadata.put("Pitch", String.format("%.1f", client.player.getPitch()));
                 metadata.put("Facing", getFacingDirection(client.player.getYaw()));
@@ -318,14 +334,22 @@ public class ScreenshotRecorderMixin {
                 }
                 if (config.includeWorldSeed
                     && client.getServer() != null && client.getServer().getOverworld() != null) {
-                    metadata.put("WorldSeed", String.valueOf(client.getServer().getOverworld().getSeed()));
+                    long seed = client.getServer().getOverworld().getSeed();
+                    if (config.privacyMode) {
+                        metadata.put("WorldSeed", hashSeed(seed));
+                        metadata.put("WorldSeedHashed", "true");
+                    } else {
+                        metadata.put("WorldSeed", String.valueOf(seed));
+                    }
                 }
                 metadata.put("ServerType", "Singleplayer");
             } else if (client.getCurrentServerEntry() != null) {
                 metadata.put("ServerType", "Multiplayer");
                 metadata.put("ServerName", client.getCurrentServerEntry().name);
                 String serverAddress = client.getCurrentServerEntry().address;
-                if (serverAddress != null && !serverAddress.toLowerCase().contains("realms")) {
+                if (!config.privacyMode
+                    && serverAddress != null
+                    && !serverAddress.toLowerCase().contains("realms")) {
                     metadata.put("ServerAddress", serverAddress);
                 }
             }
@@ -396,6 +420,8 @@ public class ScreenshotRecorderMixin {
             if (config.includePotionEffects && client.player != null) {
                 addPotionEffectsMetadata(client.player, metadata);
             }
+
+            addPendingTags(metadata);
             
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.error("Error collecting metadata", e);
@@ -778,6 +804,127 @@ public class ScreenshotRecorderMixin {
         }
         String fallback = pack.toString();
         return fallback != null && !fallback.isBlank() ? fallback : null;
+    }
+
+    private static void addPendingTags(Map<String, String> metadata) {
+        String rawTags = ScreenshotMetadataMod.consumePendingTags();
+        if (rawTags == null || rawTags.isBlank()) {
+            return;
+        }
+
+        List<String> tags = parseTags(rawTags);
+        if (tags.isEmpty()) {
+            return;
+        }
+
+        metadata.put("Tags", String.join(", ", tags));
+        metadata.put("TagCount", String.valueOf(tags.size()));
+    }
+
+    private static List<String> parseTags(String rawTags) {
+        List<String> tags = new ArrayList<>();
+        if (rawTags == null) {
+            return tags;
+        }
+        String[] parts = rawTags.split(",");
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty() && !tags.contains(trimmed)) {
+                tags.add(trimmed);
+            }
+        }
+        return tags;
+    }
+
+    private static int roundToNearest(int value, int step) {
+        if (step <= 0) {
+            return value;
+        }
+        return Math.round(value / (float) step) * step;
+    }
+
+    private static String hashSeed(long seed) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(Long.toString(seed).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not hash world seed", e);
+            return "unknown";
+        }
+    }
+
+    private static File maybeRenameScreenshot(File screenshotFile, Map<String, String> metadata) {
+        ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
+        if (screenshotFile == null || !config.renameScreenshots) {
+            return screenshotFile;
+        }
+        String template = config.screenshotNameTemplate;
+        if (template == null || template.isBlank()) {
+            return screenshotFile;
+        }
+
+        String baseName = applyTemplate(template, metadata);
+        baseName = sanitizeFileName(baseName);
+        if (baseName.isBlank()) {
+            return screenshotFile;
+        }
+
+        File parent = screenshotFile.getParentFile();
+        File target = new File(parent, baseName + ".png");
+        if (target.equals(screenshotFile)) {
+            return screenshotFile;
+        }
+
+        int suffix = 1;
+        while (target.exists()) {
+            target = new File(parent, baseName + "_" + suffix + ".png");
+            suffix++;
+        }
+
+        try {
+            Files.move(screenshotFile.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE);
+            return target;
+        } catch (Exception atomicFailure) {
+            try {
+                Files.move(screenshotFile.toPath(), target.toPath());
+                return target;
+            } catch (Exception e) {
+                ScreenshotMetadataMod.LOGGER.warn("Failed to rename screenshot {} to {}: {}",
+                    screenshotFile.getName(), target.getName(), e.getMessage());
+                return screenshotFile;
+            }
+        }
+    }
+
+    private static String applyTemplate(String template, Map<String, String> metadata) {
+        String date = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
+        String time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+        String datetime = date + "_" + time;
+
+        String result = template;
+        result = result.replace("{date}", date);
+        result = result.replace("{time}", time);
+        result = result.replace("{datetime}", datetime);
+        result = result.replace("{dimension}", metadata.getOrDefault("Dimension", "Unknown"));
+        result = result.replace("{biome}", metadata.getOrDefault("Biome", "Unknown"));
+        result = result.replace("{x}", metadata.getOrDefault("X", "NA"));
+        result = result.replace("{y}", metadata.getOrDefault("Y", "NA"));
+        result = result.replace("{z}", metadata.getOrDefault("Z", "NA"));
+        result = result.replace("{world}", metadata.getOrDefault("WorldName", "World"));
+        result = result.replace("{player}", metadata.getOrDefault("Username", "Player"));
+        return result;
+    }
+
+    private static String sanitizeFileName(String name) {
+        if (name == null) {
+            return "";
+        }
+        return name.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
     }
 
     private static boolean writePngMetadataWithRetry(File screenshotFile, Map<String, String> metadata) {

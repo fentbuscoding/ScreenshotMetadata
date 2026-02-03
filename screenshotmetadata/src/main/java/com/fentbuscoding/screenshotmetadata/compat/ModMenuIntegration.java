@@ -12,7 +12,9 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.Util;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ModMenuIntegration implements ModMenuApi {
     @Override
@@ -26,16 +28,25 @@ public class ModMenuIntegration implements ModMenuApi {
         private static final int BUTTON_HEIGHT = 24;
         private static final int SPACING = 8;
         private static final int SECTION_PADDING = 20;
-        private static final int HEADER_MIN_HEIGHT = 36;
-        private static final int HEADER_MAX_HEIGHT = 54;
+        private static final int HEADER_MIN_HEIGHT = 28;
+        private static final int HEADER_MAX_HEIGHT = 40;
         private static final int HEADER_PADDING = 6;
         private static final int CONTENT_BOTTOM_PADDING = 56;
         private static final int SECTION_TITLE_HEIGHT = 12;
         private static final int SECTION_LINE_WIDTH = 140;
+        private static final int SECTION_TOGGLE_SIZE = 16;
         private static final int SCROLL_STEP = 16;
         private static final float SCROLL_SMOOTHING = 12.0f;
 
+        private static final TemplatePreset[] TEMPLATE_PRESETS = {
+            new TemplatePreset("Default (Minecraft)", ""),
+            new TemplatePreset("Date_Dim_XZ", "{date}_{dimension}_X{x}_Z{z}"),
+            new TemplatePreset("Biome_Time", "{biome}_{time}")
+        };
+
         private final List<Section> sections = new ArrayList<>();
+        private final List<TooltipEntry> tooltipEntries = new ArrayList<>();
+        private final Map<String, Boolean> collapsedSections = new HashMap<>();
         private float scrollOffset = 0f;
         private float targetScrollOffset = 0f;
         private int appliedScrollOffset = 0;
@@ -53,117 +64,166 @@ public class ModMenuIntegration implements ModMenuApi {
         protected void init() {
             this.clearChildren();
             this.sections.clear();
+            this.tooltipEntries.clear();
             ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
             updateLayoutMetrics();
             int centerX = this.width / 2;
             int y = contentTop - appliedScrollOffset;
 
             // ===== OUTPUT FORMATS SECTION =====
-            y = drawSection(centerX, y, "Output Formats", 0x88FF88);
+            y = drawSection(centerX, y, "output_formats", "Output Formats", 0x88FF88);
             
-            y += this.addToggleButton(centerX, y, "PNG Metadata",
+            if (!isCollapsed("output_formats")) {
+                y += this.addToggleButton(centerX, y, "PNG Metadata",
                 "Embed metadata in PNG chunks", config.writePngMetadata, 
                 button -> {
                     config.writePngMetadata = !config.writePngMetadata;
                     updateButtonText(button, config.writePngMetadata);
                 });
             
-            y += this.addToggleButton(centerX, y, "XMP Sidecar", 
+                y += this.addToggleButton(centerX, y, "XMP Sidecar", 
                 "Create .xmp companion files", config.writeXmpSidecar, 
                 button -> {
                     config.writeXmpSidecar = !config.writeXmpSidecar;
                     updateButtonText(button, config.writeXmpSidecar);
                 });
 
-            y += this.addToggleButton(centerX, y, "JSON Sidecar", 
+                y += this.addToggleButton(centerX, y, "JSON Sidecar", 
                 "Create .json companion files", config.writeJsonSidecar, 
                 button -> {
                     config.writeJsonSidecar = !config.writeJsonSidecar;
                     updateButtonText(button, config.writeJsonSidecar);
                 });
+            } else {
+                y += 4;
+            }
 
             // ===== WORLD DATA SECTION =====
             y += SECTION_PADDING;
-            y = drawSection(centerX, y, "World Data", 0x88CCFF);
+            y = drawSection(centerX, y, "world_data", "World Data", 0x88CCFF);
             
-            y += this.addToggleButton(centerX, y, "World Seed", 
+            if (!isCollapsed("world_data")) {
+                y += this.addToggleButton(centerX, y, "World Seed", 
                 "Include the world seed", config.includeWorldSeed, 
                 button -> {
                     config.includeWorldSeed = !config.includeWorldSeed;
                     updateButtonText(button, config.includeWorldSeed);
                 });
 
-            y += this.addToggleButton(centerX, y, "Biome Info", 
+                y += this.addToggleButton(centerX, y, "Biome Info", 
                 "Record biome name and ID", config.includeBiomeInfo, 
                 button -> {
                     config.includeBiomeInfo = !config.includeBiomeInfo;
                     updateButtonText(button, config.includeBiomeInfo);
                 });
 
-            y += this.addToggleButton(centerX, y, "Coordinates", 
+                y += this.addToggleButton(centerX, y, "Coordinates", 
                 "Log player position and angles", config.includeCoordinates, 
                 button -> {
                     config.includeCoordinates = !config.includeCoordinates;
                     updateButtonText(button, config.includeCoordinates);
                 });
 
-            y += this.addToggleButton(centerX, y, "Weather Info",
+                y += this.addToggleButton(centerX, y, "Weather Info",
                 "Record rain, thunder, and weather state", config.includeWeatherInfo,
                 button -> {
                     config.includeWeatherInfo = !config.includeWeatherInfo;
                     updateButtonText(button, config.includeWeatherInfo);
                 });
+            } else {
+                y += 4;
+            }
+
+            // ===== PRIVACY & NAMING SECTION =====
+            y += SECTION_PADDING;
+            y = drawSection(centerX, y, "privacy_naming", "Privacy & Naming", 0x88A8FF);
+
+            if (!isCollapsed("privacy_naming")) {
+                y += this.addToggleButton(centerX, y, "Privacy Mode",
+                    "Obfuscate coords, hide server IP, and hash world seed", config.privacyMode,
+                    button -> {
+                        config.privacyMode = !config.privacyMode;
+                        updateButtonText(button, config.privacyMode);
+                    });
+
+                y += this.addToggleButton(centerX, y, "Custom Filenames",
+                    "Enable screenshot name templates", config.renameScreenshots,
+                    button -> {
+                        config.renameScreenshots = !config.renameScreenshots;
+                        updateButtonText(button, config.renameScreenshots);
+                    });
+
+                y += this.addTemplateButton(centerX, y, config);
+            } else {
+                y += 4;
+            }
 
             // ===== PLAYER STATUS SECTION =====
             y += SECTION_PADDING;
-            y = drawSection(centerX, y, "Player Status", 0xFF88CC);
+            y = drawSection(centerX, y, "player_status", "Player Status", 0xFF88CC);
             
-            y += this.addToggleButton(centerX, y, "Health and Hunger", 
+            if (!isCollapsed("player_status")) {
+                y += this.addToggleButton(centerX, y, "Health and Hunger", 
                 "Track HP, food, and saturation", config.includePlayerStatus, 
                 button -> {
                     config.includePlayerStatus = !config.includePlayerStatus;
                     updateButtonText(button, config.includePlayerStatus);
                 });
 
-            y += this.addToggleButton(centerX, y, "Potion Effects", 
+                y += this.addToggleButton(centerX, y, "Potion Effects", 
                 "Record active status effects", config.includePotionEffects, 
                 button -> {
                     config.includePotionEffects = !config.includePotionEffects;
                     updateButtonText(button, config.includePotionEffects);
                 });
+            } else {
+                y += 4;
+            }
 
             // ===== EQUIPMENT SECTION =====
             y += SECTION_PADDING;
-            y = drawSection(centerX, y, "Equipment", 0xFFCC88);
+            y = drawSection(centerX, y, "equipment", "Equipment", 0xFFCC88);
             
-            y += this.addToggleButton(centerX, y, "Armor and Items", 
+            if (!isCollapsed("equipment")) {
+                y += this.addToggleButton(centerX, y, "Armor and Items", 
                 "Log equipped items and armor", config.includeEquipment, 
                 button -> {
                     config.includeEquipment = !config.includeEquipment;
                     updateButtonText(button, config.includeEquipment);
                 });
+            } else {
+                y += 4;
+            }
 
             // ===== PERFORMANCE SECTION =====
             y += SECTION_PADDING;
-            y = drawSection(centerX, y, "Performance", 0xFFFF88);
+            y = drawSection(centerX, y, "performance", "Performance", 0xFFFF88);
             
-            y += this.addToggleButton(centerX, y, "Performance Metrics", 
+            if (!isCollapsed("performance")) {
+                y += this.addToggleButton(centerX, y, "Performance Metrics", 
                 "Record render and simulation distance", config.includePerformanceMetrics, 
                 button -> {
                     config.includePerformanceMetrics = !config.includePerformanceMetrics;
                     updateButtonText(button, config.includePerformanceMetrics);
                 });
+            } else {
+                y += 4;
+            }
 
             // ===== SIDECAR EXTRAS SECTION =====
             y += SECTION_PADDING;
-            y = drawSection(centerX, y, "Sidecar Extras", 0x88FFCC);
+            y = drawSection(centerX, y, "sidecar_extras", "Sidecar Extras", 0x88FFCC);
 
-            y += this.addToggleButton(centerX, y, "Modpack Context",
-                "Add resource packs, shaders, and mod list to JSON only", config.includeModpackContext,
-                button -> {
-                    config.includeModpackContext = !config.includeModpackContext;
-                    updateButtonText(button, config.includeModpackContext);
-                });
+            if (!isCollapsed("sidecar_extras")) {
+                y += this.addToggleButton(centerX, y, "Modpack Context",
+                    "Add resource packs, shaders, and mod list to JSON only", config.includeModpackContext,
+                    button -> {
+                        config.includeModpackContext = !config.includeModpackContext;
+                        updateButtonText(button, config.includeModpackContext);
+                    });
+            } else {
+                y += 4;
+            }
 
             // ===== SAVE BUTTON =====
             y += SECTION_PADDING + 20;
@@ -188,8 +248,9 @@ public class ModMenuIntegration implements ModMenuApi {
             appliedScrollOffset = clampInt(Math.round(scrollOffset), 0, maxScroll);
         }
 
-        private int drawSection(int centerX, int y, String title, int color) {
+        private int drawSection(int centerX, int y, String key, String title, int color) {
             sections.add(new Section(y, title, color));
+            addCollapseButton(centerX, y - 2, key);
             return y + SECTION_TITLE_HEIGHT + 6;
         }
 
@@ -199,6 +260,27 @@ public class ModMenuIntegration implements ModMenuApi {
                 .dimensions(centerX - BUTTON_WIDTH / 2, y, BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build();
             this.addDrawableChild(button);
+            if (description != null && !description.isBlank()) {
+                tooltipEntries.add(new TooltipEntry(button, List.of(Text.literal(description))));
+            }
+            return BUTTON_HEIGHT + SPACING;
+        }
+
+        private int addTemplateButton(int centerX, int y, ScreenshotMetadataConfig config) {
+            TemplatePreset current = findTemplatePreset(config.screenshotNameTemplate);
+            Text label = Text.literal("Template: " + current.displayName).formatted(Formatting.AQUA);
+            ButtonWidget button = ButtonWidget.builder(label, btn -> {
+                    TemplatePreset next = nextTemplatePreset(config.screenshotNameTemplate);
+                    config.screenshotNameTemplate = next.template;
+                    btn.setMessage(Text.literal("Template: " + next.displayName).formatted(Formatting.AQUA));
+                })
+                .dimensions(centerX - BUTTON_WIDTH / 2, y, BUTTON_WIDTH, BUTTON_HEIGHT)
+                .build();
+            this.addDrawableChild(button);
+            tooltipEntries.add(new TooltipEntry(button, List.of(
+                Text.literal("Controls how screenshot filenames are generated."),
+                Text.literal("Edit config file for custom placeholders.")
+            )));
             return BUTTON_HEIGHT + SPACING;
         }
 
@@ -230,6 +312,9 @@ public class ModMenuIntegration implements ModMenuApi {
             config.includeBiomeInfo = true;
             config.includeWeatherInfo = true;
             config.includeModpackContext = true;
+            config.privacyMode = false;
+            config.renameScreenshots = false;
+            config.screenshotNameTemplate = "{date}_{dimension}_X{x}_Z{z}";
             ScreenshotMetadataConfig.save();
             this.init();
         }
@@ -276,6 +361,8 @@ public class ModMenuIntegration implements ModMenuApi {
             renderSections(context);
             super.render(context, mouseX, mouseY, delta);
             context.disableScissor();
+
+            renderTooltipIfHovered(context, mouseX, mouseY);
 
             // Bottom shadow bar
             context.fill(0, this.height - 5, this.width, this.height, 0xFF16213e);
@@ -340,6 +427,58 @@ public class ModMenuIntegration implements ModMenuApi {
         private static float clampFloat(float value, float min, float max) {
             return Math.max(min, Math.min(value, max));
         }
+
+        private void renderTooltipIfHovered(DrawContext context, int mouseX, int mouseY) {
+            for (TooltipEntry entry : tooltipEntries) {
+                if (entry.button.isMouseOver(mouseX, mouseY)) {
+                    context.drawTooltip(this.textRenderer, entry.lines, mouseX, mouseY);
+                    return;
+                }
+            }
+        }
+
+        private void addCollapseButton(int centerX, int y, String key) {
+            boolean collapsed = isCollapsed(key);
+            Text label = Text.literal(collapsed ? "+" : "-").formatted(Formatting.GRAY);
+            ButtonWidget button = ButtonWidget.builder(label, btn -> {
+                    collapsedSections.put(key, !collapsed);
+                    this.init();
+                })
+                .dimensions(centerX + SECTION_LINE_WIDTH + 8, y, SECTION_TOGGLE_SIZE, SECTION_TOGGLE_SIZE)
+                .build();
+            this.addDrawableChild(button);
+            tooltipEntries.add(new TooltipEntry(button, List.of(
+                Text.literal(collapsed ? "Expand section" : "Collapse section")
+            )));
+        }
+
+        private boolean isCollapsed(String key) {
+            return collapsedSections.getOrDefault(key, false);
+        }
+
+        private TemplatePreset findTemplatePreset(String template) {
+            if (template == null) {
+                return TEMPLATE_PRESETS[0];
+            }
+            for (TemplatePreset preset : TEMPLATE_PRESETS) {
+                if (preset.template.equals(template)) {
+                    return preset;
+                }
+            }
+            return new TemplatePreset("Custom", template == null ? "" : template);
+        }
+
+        private TemplatePreset nextTemplatePreset(String currentTemplate) {
+            if (currentTemplate == null) {
+                return TEMPLATE_PRESETS[0];
+            }
+            for (int i = 0; i < TEMPLATE_PRESETS.length; i++) {
+                if (TEMPLATE_PRESETS[i].template.equals(currentTemplate)) {
+                    return TEMPLATE_PRESETS[(i + 1) % TEMPLATE_PRESETS.length];
+                }
+            }
+            return TEMPLATE_PRESETS[0];
+        }
     }
 
     private static final class Section {
@@ -351,6 +490,26 @@ public class ModMenuIntegration implements ModMenuApi {
             this.y = y;
             this.title = title;
             this.color = color;
+        }
+    }
+
+    private static final class TooltipEntry {
+        private final ButtonWidget button;
+        private final List<Text> lines;
+
+        private TooltipEntry(ButtonWidget button, List<Text> lines) {
+            this.button = button;
+            this.lines = lines;
+        }
+    }
+
+    private static final class TemplatePreset {
+        private final String displayName;
+        private final String template;
+
+        private TemplatePreset(String displayName, String template) {
+            this.displayName = displayName;
+            this.template = template;
         }
     }
 }
