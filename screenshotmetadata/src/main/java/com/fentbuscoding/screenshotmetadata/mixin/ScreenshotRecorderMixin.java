@@ -1,5 +1,6 @@
-package com.fentbuscoding.screenshotmetadata;
+package com.fentbuscoding.screenshotmetadata.mixin;
 
+import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
 import com.fentbuscoding.screenshotmetadata.config.ScreenshotMetadataConfig;
 import com.fentbuscoding.screenshotmetadata.metadata.JsonSidecarContext;
 import com.fentbuscoding.screenshotmetadata.metadata.JsonSidecarWriter;
