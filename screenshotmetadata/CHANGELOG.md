@@ -12,6 +12,9 @@ All notable changes to the Screenshot Metadata Mod are documented here. This cha
 
 ### Fixed
 - Mixin package crash when loading helper classes in the mixin package
+- Fixed PNG metadata write failures by correcting PNG `iTXtEntry` fields (`text` instead of `value`), which prevented metadata merge/write errors.
+- Fixed metadata fallback reliability by rebuilding image metadata before switching from `iTXt` to `tEXt`.
+- Fixed low-information PNG write logs (`null`) by reporting the underlying exception reason.
 
 ## [1.0.4.2] - 2026-02-03
 
