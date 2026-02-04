@@ -64,16 +64,26 @@ public class PngMetadataWriter {
 
             ImageWriteParam writeParam = writer.getDefaultWriteParam();
             IIOMetadata meta = writer.getDefaultImageMetadata(new ImageTypeSpecifier(image), writeParam);
-
             String nativeFormat = meta.getNativeMetadataFormatName();
+
+            if (nativeFormat == null || nativeFormat.isBlank()) {
+                throw new IOException("PNG metadata format is unavailable");
+            }
+
             boolean merged = mergeTextMetadata(meta, nativeFormat, metadata, true);
             if (!merged) {
-                mergeTextMetadata(meta, nativeFormat, metadata, false);
+                // Recreate metadata before fallback; failed merge calls can leave metadata in a bad state.
+                meta = writer.getDefaultImageMetadata(new ImageTypeSpecifier(image), writeParam);
+                nativeFormat = meta.getNativeMetadataFormatName();
+                if (nativeFormat == null || nativeFormat.isBlank() ||
+                    !mergeTextMetadata(meta, nativeFormat, metadata, false)) {
+                    throw new IOException("Could not merge PNG metadata");
+                }
             }
 
             try (ImageOutputStream output = ImageIO.createImageOutputStream(tempPath.toFile())) {
                 writer.setOutput(output);
-                writer.write(meta, new IIOImage(image, null, meta), writeParam);
+                writer.write(null, new IIOImage(image, null, meta), writeParam);
             }
 
             // Replace original file with the updated one, prefer atomic move when supported
@@ -85,8 +95,9 @@ public class PngMetadataWriter {
             moved = true;
 
         } catch (Exception e) {
-            ScreenshotMetadataMod.LOGGER.error("Failed to write PNG metadata to {}: {}", file.getName(), e.getMessage());
-            throw new IOException("Failed to write PNG metadata", e);
+            String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            ScreenshotMetadataMod.LOGGER.debug("Failed to write PNG metadata to {}: {}", file.getName(), reason, e);
+            throw new IOException("Failed to write PNG metadata: " + reason, e);
         } finally {
             if (writer != null) {
                 writer.dispose();
@@ -142,12 +153,14 @@ public class PngMetadataWriter {
         if (keyword != null && value != null && !value.trim().isEmpty()) {
             IIOMetadataNode textEntry = new IIOMetadataNode(useITXt ? "iTXtEntry" : "tEXtEntry");
             textEntry.setAttribute("keyword", keyword);
-            textEntry.setAttribute("value", value.trim());
             if (useITXt) {
+                textEntry.setAttribute("text", value.trim());
                 textEntry.setAttribute("languageTag", "");
                 textEntry.setAttribute("translatedKeyword", "");
                 textEntry.setAttribute("compressionFlag", "FALSE");
                 textEntry.setAttribute("compressionMethod", "0");
+            } else {
+                textEntry.setAttribute("value", value.trim());
             }
             textNode.appendChild(textEntry);
         }
