@@ -2,7 +2,7 @@
 
 All notable changes to the Screenshot Metadata Mod are documented here. This changelog focuses on functional changes to the mod itself.
 
-## [1.1.0] - 2026-02-03
+## [1.1.0] - 2026-02-04
 
 ### Added
 - Privacy mode toggle (obfuscates coords, hides server IP, hashes world seed)
