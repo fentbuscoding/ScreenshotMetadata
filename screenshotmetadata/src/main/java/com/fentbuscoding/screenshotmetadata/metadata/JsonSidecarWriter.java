@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -12,6 +13,8 @@ import java.util.Map;
  * Creates JSON sidecar files for screenshots for easy parsing by tools.
  */
 public class JsonSidecarWriter {
+    private static final int FILE_FORMAT_VERSION = 1;
+    private static final int METADATA_SCHEMA_VERSION = 2;
 
     /**
      * Creates a JSON sidecar file for the given image file.
@@ -64,18 +67,21 @@ public class JsonSidecarWriter {
     }
 
     private static String generateJsonContent(File imageFile, Map<String, String> metadata, JsonSidecarContext context) {
+        Map<String, String> migratedMetadata = migrateMetadata(metadata);
+
         StringBuilder json = new StringBuilder();
         json.append("{\n");
-        json.append("  \"formatVersion\": \"1\",\n");
+        json.append("  \"formatVersion\": \"").append(FILE_FORMAT_VERSION).append("\",\n");
+        json.append("  \"metadataSchemaVersion\": ").append(METADATA_SCHEMA_VERSION).append(",\n");
         json.append("  \"screenshotFile\": \"")
             .append(escapeJson(imageFile.getName()))
             .append("\",\n");
 
         json.append("  \"metadata\": {");
-        if (metadata != null && !metadata.isEmpty()) {
+        if (migratedMetadata != null && !migratedMetadata.isEmpty()) {
             json.append("\n");
             int index = 0;
-            for (Map.Entry<String, String> entry : metadata.entrySet()) {
+            for (Map.Entry<String, String> entry : migratedMetadata.entrySet()) {
                 if (entry.getKey() == null || entry.getValue() == null) {
                     continue;
                 }
@@ -93,7 +99,7 @@ public class JsonSidecarWriter {
         }
         json.append("}");
 
-        List<String> tags = extractTags(metadata);
+        List<String> tags = extractTags(migratedMetadata);
         if (!tags.isEmpty()) {
             appendTags(json, tags);
         }
@@ -105,6 +111,39 @@ public class JsonSidecarWriter {
         json.append("\n");
         json.append("}\n");
         return json.toString();
+    }
+
+    /**
+     * Migrates legacy metadata keys to the current schema.
+     * This keeps generated sidecars stable even if upstream key names change.
+     */
+    private static Map<String, String> migrateMetadata(Map<String, String> metadata) {
+        Map<String, String> migrated = new LinkedHashMap<>();
+        if (metadata == null || metadata.isEmpty()) {
+            return migrated;
+        }
+
+        migrated.putAll(metadata);
+
+        migrateKey(migrated, "world", "World");
+        migrateKey(migrated, "dimension", "Dimension");
+        migrateKey(migrated, "biome", "Biome");
+        migrateKey(migrated, "player", "Username");
+        migrateKey(migrated, "server", "ServerName");
+        migrateKey(migrated, "timestampUtc", "Timestamp");
+        migrateKey(migrated, "seedHash", "WorldSeed");
+        migrateKey(migrated, "tags", "Tags");
+
+        return migrated;
+    }
+
+    private static void migrateKey(Map<String, String> metadata, String legacyKey, String currentKey) {
+        if (!metadata.containsKey(currentKey) && metadata.containsKey(legacyKey)) {
+            String value = metadata.get(legacyKey);
+            if (value != null) {
+                metadata.put(currentKey, value);
+            }
+        }
     }
 
     private static void appendModpackContext(StringBuilder json, JsonSidecarContext context) {

@@ -7,10 +7,14 @@ import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Util;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,14 +39,10 @@ public class ModMenuIntegration implements ModMenuApi {
         private static final int SECTION_TITLE_HEIGHT = 12;
         private static final int SECTION_LINE_WIDTH = 140;
         private static final int SECTION_TOGGLE_SIZE = 16;
+        private static final int TEMPLATE_FIELD_HEIGHT = 20;
+        private static final int TEMPLATE_HELP_HEIGHT = 26;
         private static final int SCROLL_STEP = 16;
         private static final float SCROLL_SMOOTHING = 12.0f;
-
-        private static final TemplatePreset[] TEMPLATE_PRESETS = {
-            new TemplatePreset("Default (Minecraft)", ""),
-            new TemplatePreset("Date_Dim_XZ", "{date}_{dimension}_X{x}_Z{z}"),
-            new TemplatePreset("Biome_Time", "{biome}_{time}")
-        };
 
         private final List<Section> sections = new ArrayList<>();
         private final List<TooltipEntry> tooltipEntries = new ArrayList<>();
@@ -54,6 +54,9 @@ public class ModMenuIntegration implements ModMenuApi {
         private int headerHeight = HEADER_MAX_HEIGHT;
         private int contentTop = HEADER_MAX_HEIGHT + HEADER_PADDING;
         private long lastScrollUpdateMs = 0L;
+        private TextFieldWidget templateField;
+        private int templateFieldY = -1;
+        private String templatePreview = "";
 
         protected ConfigScreen(Screen parent) {
             super(Text.literal("Screenshot Metadata Config").formatted(Formatting.BOLD));
@@ -65,6 +68,8 @@ public class ModMenuIntegration implements ModMenuApi {
             this.clearChildren();
             this.sections.clear();
             this.tooltipEntries.clear();
+            this.templateField = null;
+            this.templateFieldY = -1;
             ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
             updateLayoutMetrics();
             int centerX = this.width / 2;
@@ -153,7 +158,7 @@ public class ModMenuIntegration implements ModMenuApi {
                         updateButtonText(button, config.renameScreenshots);
                     });
 
-                y += this.addTemplateButton(centerX, y, config);
+                y += this.addTemplateEditor(centerX, y, config);
             } else {
                 y += 4;
             }
@@ -266,22 +271,60 @@ public class ModMenuIntegration implements ModMenuApi {
             return BUTTON_HEIGHT + SPACING;
         }
 
-        private int addTemplateButton(int centerX, int y, ScreenshotMetadataConfig config) {
-            TemplatePreset current = findTemplatePreset(config.screenshotNameTemplate);
-            Text label = Text.literal("Template: " + current.displayName).formatted(Formatting.AQUA);
-            ButtonWidget button = ButtonWidget.builder(label, btn -> {
-                    TemplatePreset next = nextTemplatePreset(config.screenshotNameTemplate);
-                    config.screenshotNameTemplate = next.template;
-                    btn.setMessage(Text.literal("Template: " + next.displayName).formatted(Formatting.AQUA));
-                })
-                .dimensions(centerX - BUTTON_WIDTH / 2, y, BUTTON_WIDTH, BUTTON_HEIGHT)
+        private int addTemplateEditor(int centerX, int y, ScreenshotMetadataConfig config) {
+            int fieldX = centerX - BUTTON_WIDTH / 2;
+            templateFieldY = y;
+            templateField = new TextFieldWidget(
+                this.textRenderer,
+                fieldX,
+                y,
+                BUTTON_WIDTH,
+                TEMPLATE_FIELD_HEIGHT,
+                Text.literal("Filename Template")
+            );
+            templateField.setPlaceholder(Text.literal("{date}_{dimension}_X{x}_Z{z}"));
+            templateField.setMaxLength(120);
+            templateField.setText(config.screenshotNameTemplate == null ? "" : config.screenshotNameTemplate);
+            templateField.setChangedListener(newValue -> {
+                config.screenshotNameTemplate = newValue == null ? "" : newValue.trim();
+                templatePreview = createTemplatePreview(config.screenshotNameTemplate);
+            });
+            this.addDrawableChild(templateField);
+            templatePreview = createTemplatePreview(config.screenshotNameTemplate);
+
+            int buttonY = y + TEMPLATE_FIELD_HEIGHT + 2;
+            int smallButtonWidth = (BUTTON_WIDTH - 6) / 2;
+
+            ButtonWidget defaultsButton = ButtonWidget.builder(
+                    Text.literal("Default").formatted(Formatting.GRAY),
+                    btn -> {
+                        config.screenshotNameTemplate = "{date}_{dimension}_X{x}_Z{z}";
+                        templateField.setText(config.screenshotNameTemplate);
+                        templatePreview = createTemplatePreview(config.screenshotNameTemplate);
+                    })
+                .dimensions(fieldX, buttonY, smallButtonWidth, 16)
                 .build();
-            this.addDrawableChild(button);
-            tooltipEntries.add(new TooltipEntry(button, List.of(
-                Text.literal("Controls how screenshot filenames are generated."),
-                Text.literal("Edit config file for custom placeholders.")
+            this.addDrawableChild(defaultsButton);
+
+            ButtonWidget biomeTimeButton = ButtonWidget.builder(
+                    Text.literal("Biome+Time").formatted(Formatting.AQUA),
+                    btn -> {
+                        config.screenshotNameTemplate = "{biome}_{time}";
+                        templateField.setText(config.screenshotNameTemplate);
+                        templatePreview = createTemplatePreview(config.screenshotNameTemplate);
+                    })
+                .dimensions(fieldX + smallButtonWidth + 6, buttonY, smallButtonWidth, 16)
+                .build();
+            this.addDrawableChild(biomeTimeButton);
+
+            tooltipEntries.add(new TooltipEntry(defaultsButton, List.of(
+                Text.literal("Use the recommended default template")
             )));
-            return BUTTON_HEIGHT + SPACING;
+            tooltipEntries.add(new TooltipEntry(biomeTimeButton, List.of(
+                Text.literal("Quick preset for biome + time naming")
+            )));
+
+            return TEMPLATE_FIELD_HEIGHT + 16 + TEMPLATE_HELP_HEIGHT + SPACING;
         }
 
         private static Text createModernToggleText(String icon, boolean enabled) {
@@ -358,6 +401,7 @@ public class ModMenuIntegration implements ModMenuApi {
             context.enableScissor(0, contentTop, this.width, this.height - 6);
             renderSections(context);
             super.render(context, mouseX, mouseY, delta);
+            renderTemplateEditorHelp(context);
             context.disableScissor();
 
             renderTooltipIfHovered(context, mouseX, mouseY);
@@ -441,6 +485,51 @@ public class ModMenuIntegration implements ModMenuApi {
             }
         }
 
+        private void renderTemplateEditorHelp(DrawContext context) {
+            if (templateField == null || templateFieldY < 0) {
+                return;
+            }
+            int y = templateFieldY + TEMPLATE_FIELD_HEIGHT + 20;
+            if (y < contentTop - 16 || y > this.height - 20) {
+                return;
+            }
+
+            context.drawTextWithShadow(
+                this.textRenderer,
+                Text.literal("{date} {time} {dimension} {biome} {x} {y} {z} {world} {player}")
+                    .formatted(Formatting.DARK_GRAY),
+                templateField.getX(),
+                y,
+                0x777777
+            );
+            context.drawTextWithShadow(
+                this.textRenderer,
+                Text.literal("Preview: " + templatePreview).formatted(Formatting.GRAY),
+                templateField.getX(),
+                y + 10,
+                0x9B9B9B
+            );
+        }
+
+        private String createTemplatePreview(String template) {
+            String value = template == null || template.isBlank()
+                ? "{date}_{dimension}_X{x}_Z{z}"
+                : template;
+            String date = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
+            String time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH-mm-ss"));
+            value = value.replace("{date}", date);
+            value = value.replace("{time}", time);
+            value = value.replace("{dimension}", "Overworld");
+            value = value.replace("{biome}", "Cherry_Grove");
+            value = value.replace("{x}", "65");
+            value = value.replace("{y}", "92");
+            value = value.replace("{z}", "-88");
+            value = value.replace("{world}", "New_World");
+            value = value.replace("{player}", "Player");
+            value = value.replaceAll("[\\\\/:*?\"<>|]", "_");
+            return value + ".png";
+        }
+
         private void addCollapseButton(int centerX, int y, String key) {
             boolean collapsed = isCollapsed(key);
             Text label = Text.literal(collapsed ? "+" : "-").formatted(Formatting.GRAY);
@@ -460,29 +549,6 @@ public class ModMenuIntegration implements ModMenuApi {
             return collapsedSections.getOrDefault(key, false);
         }
 
-        private TemplatePreset findTemplatePreset(String template) {
-            if (template == null) {
-                return TEMPLATE_PRESETS[0];
-            }
-            for (TemplatePreset preset : TEMPLATE_PRESETS) {
-                if (preset.template.equals(template)) {
-                    return preset;
-                }
-            }
-            return new TemplatePreset("Custom", template == null ? "" : template);
-        }
-
-        private TemplatePreset nextTemplatePreset(String currentTemplate) {
-            if (currentTemplate == null) {
-                return TEMPLATE_PRESETS[0];
-            }
-            for (int i = 0; i < TEMPLATE_PRESETS.length; i++) {
-                if (TEMPLATE_PRESETS[i].template.equals(currentTemplate)) {
-                    return TEMPLATE_PRESETS[(i + 1) % TEMPLATE_PRESETS.length];
-                }
-            }
-            return TEMPLATE_PRESETS[0];
-        }
     }
 
     private static final class Section {
@@ -507,13 +573,4 @@ public class ModMenuIntegration implements ModMenuApi {
         }
     }
 
-    private static final class TemplatePreset {
-        private final String displayName;
-        private final String template;
-
-        private TemplatePreset(String displayName, String template) {
-            this.displayName = displayName;
-            this.template = template;
-        }
-    }
 }
