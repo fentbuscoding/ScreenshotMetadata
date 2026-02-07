@@ -11,10 +11,20 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ScreenshotMetadataConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String FILE_NAME = "screenshotmetadata.json";
+    private static final List<String> DEFAULT_TAG_PRESETS = List.of(
+        "build",
+        "base",
+        "cave",
+        "nether",
+        "end",
+        "village"
+    );
 
     private static ScreenshotMetadataConfig instance;
     private static boolean loaded;
@@ -36,10 +46,14 @@ public class ScreenshotMetadataConfig {
     public boolean includeBiomeInfo = true;
     public boolean includeWeatherInfo = true;
     public boolean includeModpackContext = true;
+    public List<String> tagPresets = new ArrayList<>(DEFAULT_TAG_PRESETS);
 
     public static ScreenshotMetadataConfig get() {
         if (instance == null || !loaded) {
             load();
+        }
+        if (instance != null) {
+            instance.normalize();
         }
         return instance;
     }
@@ -52,14 +66,17 @@ public class ScreenshotMetadataConfig {
                 if (instance == null) {
                     instance = new ScreenshotMetadataConfig();
                 }
+                instance.normalize();
                 loaded = true;
             } catch (IOException | JsonSyntaxException e) {
                 ScreenshotMetadataMod.LOGGER.warn("Failed to read config, using defaults: {}", e.getMessage());
                 instance = new ScreenshotMetadataConfig();
+                instance.normalize();
                 loaded = true;
             }
         } else {
             instance = new ScreenshotMetadataConfig();
+            instance.normalize();
             loaded = true;
             save();
         }
@@ -81,5 +98,31 @@ public class ScreenshotMetadataConfig {
 
     private static Path getConfigPath() {
         return FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
+    }
+
+    public static List<String> defaultTagPresets() {
+        return new ArrayList<>(DEFAULT_TAG_PRESETS);
+    }
+
+    private void normalize() {
+        if (tagPresets == null) {
+            tagPresets = new ArrayList<>();
+            return;
+        }
+        List<String> cleaned = new ArrayList<>();
+        for (String tag : tagPresets) {
+            if (tag == null) {
+                continue;
+            }
+            String trimmed = tag.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            boolean exists = cleaned.stream().anyMatch(existing -> existing.equalsIgnoreCase(trimmed));
+            if (!exists) {
+                cleaned.add(trimmed);
+            }
+        }
+        tagPresets = cleaned;
     }
 }

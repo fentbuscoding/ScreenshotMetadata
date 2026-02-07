@@ -12,6 +12,7 @@ A Minecraft Fabric mod that automatically adds comprehensive metadata to your sc
 - Player Status: Health, hunger, potion effects, and equipped items
 - Performance Metrics: Render distance and simulation distance
 - Equipment Details: Full armor and item inventory tracking
+- Tags: Optional user-supplied tags for searching and organization
 
 ### Flexible Storage Options
 - PNG Text Chunks: Embedded directly in image files for technical tools
@@ -64,6 +65,12 @@ When you take a screenshot, the mod creates:
 3. Right-click any screenshot and select Properties
 4. View metadata in the Details tab
 
+### Tagging Screenshots
+1. Press `T` (default) to open the tag input screen
+2. Type comma-separated tags or click preset buttons
+3. Click Save to apply tags to the next screenshot
+4. Configure presets in ModMenu under the Tags section
+
 ### Configuration
 1. Open Minecraft
 2. From main menu, click Mods
@@ -82,6 +89,7 @@ When you take a screenshot, the mod creates:
 - Potion Effects: Record active status effects
 - Armor and Items: Log equipped items and armor
 - Performance Metrics: Record render and simulation distance
+- Tag Presets: Comma-separated presets for the tag input screen
 
 ## Technical Details
 

@@ -41,6 +41,8 @@ public class ModMenuIntegration implements ModMenuApi {
         private static final int SECTION_TOGGLE_SIZE = 16;
         private static final int TEMPLATE_FIELD_HEIGHT = 20;
         private static final int TEMPLATE_HELP_HEIGHT = 26;
+        private static final int TAG_PRESET_FIELD_HEIGHT = 20;
+        private static final int TAG_PRESET_HELP_HEIGHT = 18;
         private static final int SCROLL_STEP = 16;
         private static final float SCROLL_SMOOTHING = 12.0f;
 
@@ -57,9 +59,11 @@ public class ModMenuIntegration implements ModMenuApi {
         private TextFieldWidget templateField;
         private int templateFieldY = -1;
         private String templatePreview = "";
+        private TextFieldWidget tagPresetsField;
+        private int tagPresetsFieldY = -1;
 
         protected ConfigScreen(Screen parent) {
-            super(Text.literal("Screenshot Metadata Config").formatted(Formatting.BOLD));
+            super(Text.translatable("screen.screenshotmetadata.config.title").formatted(Formatting.BOLD));
             this.parent = parent;
         }
 
@@ -70,34 +74,41 @@ public class ModMenuIntegration implements ModMenuApi {
             this.tooltipEntries.clear();
             this.templateField = null;
             this.templateFieldY = -1;
+            this.tagPresetsField = null;
+            this.tagPresetsFieldY = -1;
             ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
             updateLayoutMetrics();
             int centerX = this.width / 2;
             int y = contentTop - appliedScrollOffset;
 
             // ===== OUTPUT FORMATS SECTION =====
-            y = drawSection(centerX, y, "output_formats", "Output Formats", 0x88FF88);
+            y = drawSection(centerX, y, "output_formats",
+                Text.translatable("screen.screenshotmetadata.config.section.output_formats"),
+                0x88FF88);
             
             if (!isCollapsed("output_formats")) {
-                y += this.addToggleButton(centerX, y, "PNG Metadata",
-                "Embed metadata in PNG chunks", config.writePngMetadata, 
+                Text pngLabel = Text.translatable("screen.screenshotmetadata.config.toggle.png");
+                y += this.addToggleButton(centerX, y, pngLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.png.desc"), config.writePngMetadata,
                 button -> {
                     config.writePngMetadata = !config.writePngMetadata;
-                    updateButtonText(button, config.writePngMetadata);
+                    updateButtonText(button, pngLabel, config.writePngMetadata);
                 });
             
-                y += this.addToggleButton(centerX, y, "XMP Sidecar", 
-                "Create .xmp companion files", config.writeXmpSidecar, 
+                Text xmpLabel = Text.translatable("screen.screenshotmetadata.config.toggle.xmp");
+                y += this.addToggleButton(centerX, y, xmpLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.xmp.desc"), config.writeXmpSidecar,
                 button -> {
                     config.writeXmpSidecar = !config.writeXmpSidecar;
-                    updateButtonText(button, config.writeXmpSidecar);
+                    updateButtonText(button, xmpLabel, config.writeXmpSidecar);
                 });
 
-                y += this.addToggleButton(centerX, y, "JSON Sidecar", 
-                "Create .json companion files", config.writeJsonSidecar, 
+                Text jsonLabel = Text.translatable("screen.screenshotmetadata.config.toggle.json");
+                y += this.addToggleButton(centerX, y, jsonLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.json.desc"), config.writeJsonSidecar,
                 button -> {
                     config.writeJsonSidecar = !config.writeJsonSidecar;
-                    updateButtonText(button, config.writeJsonSidecar);
+                    updateButtonText(button, jsonLabel, config.writeJsonSidecar);
                 });
             } else {
                 y += 4;
@@ -105,35 +116,41 @@ public class ModMenuIntegration implements ModMenuApi {
 
             // ===== WORLD DATA SECTION =====
             y += SECTION_PADDING;
-            y = drawSection(centerX, y, "world_data", "World Data", 0x88CCFF);
+            y = drawSection(centerX, y, "world_data",
+                Text.translatable("screen.screenshotmetadata.config.section.world_data"),
+                0x88CCFF);
             
             if (!isCollapsed("world_data")) {
-                y += this.addToggleButton(centerX, y, "World Seed", 
-                "Include the world seed", config.includeWorldSeed, 
+                Text seedLabel = Text.translatable("screen.screenshotmetadata.config.toggle.world_seed");
+                y += this.addToggleButton(centerX, y, seedLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.world_seed.desc"), config.includeWorldSeed,
                 button -> {
                     config.includeWorldSeed = !config.includeWorldSeed;
-                    updateButtonText(button, config.includeWorldSeed);
+                    updateButtonText(button, seedLabel, config.includeWorldSeed);
                 });
 
-                y += this.addToggleButton(centerX, y, "Biome Info", 
-                "Record biome name and ID", config.includeBiomeInfo, 
+                Text biomeLabel = Text.translatable("screen.screenshotmetadata.config.toggle.biome");
+                y += this.addToggleButton(centerX, y, biomeLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.biome.desc"), config.includeBiomeInfo,
                 button -> {
                     config.includeBiomeInfo = !config.includeBiomeInfo;
-                    updateButtonText(button, config.includeBiomeInfo);
+                    updateButtonText(button, biomeLabel, config.includeBiomeInfo);
                 });
 
-                y += this.addToggleButton(centerX, y, "Coordinates", 
-                "Log player position and angles", config.includeCoordinates, 
+                Text coordsLabel = Text.translatable("screen.screenshotmetadata.config.toggle.coordinates");
+                y += this.addToggleButton(centerX, y, coordsLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.coordinates.desc"), config.includeCoordinates,
                 button -> {
                     config.includeCoordinates = !config.includeCoordinates;
-                    updateButtonText(button, config.includeCoordinates);
+                    updateButtonText(button, coordsLabel, config.includeCoordinates);
                 });
 
-                y += this.addToggleButton(centerX, y, "Weather Info",
-                "Record rain, thunder, and weather state", config.includeWeatherInfo,
+                Text weatherLabel = Text.translatable("screen.screenshotmetadata.config.toggle.weather");
+                y += this.addToggleButton(centerX, y, weatherLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.weather.desc"), config.includeWeatherInfo,
                 button -> {
                     config.includeWeatherInfo = !config.includeWeatherInfo;
-                    updateButtonText(button, config.includeWeatherInfo);
+                    updateButtonText(button, weatherLabel, config.includeWeatherInfo);
                 });
             } else {
                 y += 4;
@@ -141,21 +158,25 @@ public class ModMenuIntegration implements ModMenuApi {
 
             // ===== PRIVACY & NAMING SECTION =====
             y += SECTION_PADDING;
-            y = drawSection(centerX, y, "privacy_naming", "Privacy & Naming", 0x88A8FF);
+            y = drawSection(centerX, y, "privacy_naming",
+                Text.translatable("screen.screenshotmetadata.config.section.privacy"),
+                0x88A8FF);
 
             if (!isCollapsed("privacy_naming")) {
-                y += this.addToggleButton(centerX, y, "Privacy Mode",
-                    "Obfuscate coords, hide server IP, and hash world seed", config.privacyMode,
+                Text privacyLabel = Text.translatable("screen.screenshotmetadata.config.toggle.privacy");
+                y += this.addToggleButton(centerX, y, privacyLabel,
+                    Text.translatable("screen.screenshotmetadata.config.toggle.privacy.desc"), config.privacyMode,
                     button -> {
                         config.privacyMode = !config.privacyMode;
-                        updateButtonText(button, config.privacyMode);
+                        updateButtonText(button, privacyLabel, config.privacyMode);
                     });
 
-                y += this.addToggleButton(centerX, y, "Custom Filenames",
-                    "Enable screenshot name templates", config.renameScreenshots,
+                Text renameLabel = Text.translatable("screen.screenshotmetadata.config.toggle.rename");
+                y += this.addToggleButton(centerX, y, renameLabel,
+                    Text.translatable("screen.screenshotmetadata.config.toggle.rename.desc"), config.renameScreenshots,
                     button -> {
                         config.renameScreenshots = !config.renameScreenshots;
-                        updateButtonText(button, config.renameScreenshots);
+                        updateButtonText(button, renameLabel, config.renameScreenshots);
                     });
 
                 y += this.addTemplateEditor(centerX, y, config);
@@ -163,23 +184,39 @@ public class ModMenuIntegration implements ModMenuApi {
                 y += 4;
             }
 
+            // ===== TAGS SECTION =====
+            y += SECTION_PADDING;
+            y = drawSection(centerX, y, "tags",
+                Text.translatable("screen.screenshotmetadata.config.section.tags"),
+                0x88FFEE);
+
+            if (!isCollapsed("tags")) {
+                y += this.addTagPresetsEditor(centerX, y, config);
+            } else {
+                y += 4;
+            }
+
             // ===== PLAYER STATUS SECTION =====
             y += SECTION_PADDING;
-            y = drawSection(centerX, y, "player_status", "Player Status", 0xFF88CC);
+            y = drawSection(centerX, y, "player_status",
+                Text.translatable("screen.screenshotmetadata.config.section.player_status"),
+                0xFF88CC);
             
             if (!isCollapsed("player_status")) {
-                y += this.addToggleButton(centerX, y, "Health and Hunger", 
-                "Track HP, food, and saturation", config.includePlayerStatus, 
+                Text healthLabel = Text.translatable("screen.screenshotmetadata.config.toggle.player_status");
+                y += this.addToggleButton(centerX, y, healthLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.player_status.desc"), config.includePlayerStatus,
                 button -> {
                     config.includePlayerStatus = !config.includePlayerStatus;
-                    updateButtonText(button, config.includePlayerStatus);
+                    updateButtonText(button, healthLabel, config.includePlayerStatus);
                 });
 
-                y += this.addToggleButton(centerX, y, "Potion Effects", 
-                "Record active status effects", config.includePotionEffects, 
+                Text potionLabel = Text.translatable("screen.screenshotmetadata.config.toggle.potion");
+                y += this.addToggleButton(centerX, y, potionLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.potion.desc"), config.includePotionEffects,
                 button -> {
                     config.includePotionEffects = !config.includePotionEffects;
-                    updateButtonText(button, config.includePotionEffects);
+                    updateButtonText(button, potionLabel, config.includePotionEffects);
                 });
             } else {
                 y += 4;
@@ -187,14 +224,17 @@ public class ModMenuIntegration implements ModMenuApi {
 
             // ===== EQUIPMENT SECTION =====
             y += SECTION_PADDING;
-            y = drawSection(centerX, y, "equipment", "Equipment", 0xFFCC88);
+            y = drawSection(centerX, y, "equipment",
+                Text.translatable("screen.screenshotmetadata.config.section.equipment"),
+                0xFFCC88);
             
             if (!isCollapsed("equipment")) {
-                y += this.addToggleButton(centerX, y, "Armor and Items", 
-                "Log equipped items and armor", config.includeEquipment, 
+                Text equipmentLabel = Text.translatable("screen.screenshotmetadata.config.toggle.equipment");
+                y += this.addToggleButton(centerX, y, equipmentLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.equipment.desc"), config.includeEquipment,
                 button -> {
                     config.includeEquipment = !config.includeEquipment;
-                    updateButtonText(button, config.includeEquipment);
+                    updateButtonText(button, equipmentLabel, config.includeEquipment);
                 });
             } else {
                 y += 4;
@@ -202,14 +242,17 @@ public class ModMenuIntegration implements ModMenuApi {
 
             // ===== PERFORMANCE SECTION =====
             y += SECTION_PADDING;
-            y = drawSection(centerX, y, "performance", "Performance", 0xFFFF88);
+            y = drawSection(centerX, y, "performance",
+                Text.translatable("screen.screenshotmetadata.config.section.performance"),
+                0xFFFF88);
             
             if (!isCollapsed("performance")) {
-                y += this.addToggleButton(centerX, y, "Performance Metrics", 
-                "Record render and simulation distance", config.includePerformanceMetrics, 
+                Text perfLabel = Text.translatable("screen.screenshotmetadata.config.toggle.performance");
+                y += this.addToggleButton(centerX, y, perfLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.performance.desc"), config.includePerformanceMetrics,
                 button -> {
                     config.includePerformanceMetrics = !config.includePerformanceMetrics;
-                    updateButtonText(button, config.includePerformanceMetrics);
+                    updateButtonText(button, perfLabel, config.includePerformanceMetrics);
                 });
             } else {
                 y += 4;
@@ -217,14 +260,17 @@ public class ModMenuIntegration implements ModMenuApi {
 
             // ===== SIDECAR EXTRAS SECTION =====
             y += SECTION_PADDING;
-            y = drawSection(centerX, y, "sidecar_extras", "Sidecar Extras", 0x88FFCC);
+            y = drawSection(centerX, y, "sidecar_extras",
+                Text.translatable("screen.screenshotmetadata.config.section.sidecar_extras"),
+                0x88FFCC);
 
             if (!isCollapsed("sidecar_extras")) {
-                y += this.addToggleButton(centerX, y, "Modpack Context",
-                    "Add resource packs, shaders, and mod list to JSON only", config.includeModpackContext,
+                Text modpackLabel = Text.translatable("screen.screenshotmetadata.config.toggle.modpack");
+                y += this.addToggleButton(centerX, y, modpackLabel,
+                    Text.translatable("screen.screenshotmetadata.config.toggle.modpack.desc"), config.includeModpackContext,
                     button -> {
                         config.includeModpackContext = !config.includeModpackContext;
-                        updateButtonText(button, config.includeModpackContext);
+                        updateButtonText(button, modpackLabel, config.includeModpackContext);
                     });
             } else {
                 y += 4;
@@ -233,14 +279,14 @@ public class ModMenuIntegration implements ModMenuApi {
             // ===== SAVE BUTTON =====
             y += SECTION_PADDING + 20;
             this.addDrawableChild(ButtonWidget.builder(
-                Text.literal("Save and Close").formatted(Formatting.GREEN, Formatting.BOLD), 
+                Text.translatable("screen.screenshotmetadata.config.save").formatted(Formatting.GREEN, Formatting.BOLD), 
                 button -> this.close())
                 .dimensions(centerX - BUTTON_WIDTH / 2, Math.min(y, this.height - 40), BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
 
             // Reset button
             this.addDrawableChild(ButtonWidget.builder(
-                Text.literal("Reset to Defaults").formatted(Formatting.YELLOW), 
+                Text.translatable("screen.screenshotmetadata.config.reset").formatted(Formatting.YELLOW), 
                 button -> resetDefaults())
                 .dimensions(centerX - BUTTON_WIDTH / 2, this.height - 30, BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
@@ -253,20 +299,20 @@ public class ModMenuIntegration implements ModMenuApi {
             appliedScrollOffset = clampInt(Math.round(scrollOffset), 0, maxScroll);
         }
 
-        private int drawSection(int centerX, int y, String key, String title, int color) {
+        private int drawSection(int centerX, int y, String key, Text title, int color) {
             sections.add(new Section(y, title, color));
             addCollapseButton(centerX, y - 2, key);
             return y + SECTION_TITLE_HEIGHT + 6;
         }
 
-        private int addToggleButton(int centerX, int y, String icon, String description, boolean enabled, java.util.function.Consumer<ButtonWidget> onPress) {
-            Text buttonText = createModernToggleText(icon, enabled);
+        private int addToggleButton(int centerX, int y, Text label, Text description, boolean enabled, java.util.function.Consumer<ButtonWidget> onPress) {
+            Text buttonText = createModernToggleText(label, enabled);
             ButtonWidget button = ButtonWidget.builder(buttonText, btn -> onPress.accept(btn))
                 .dimensions(centerX - BUTTON_WIDTH / 2, y, BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build();
             this.addDrawableChild(button);
-            if (description != null && !description.isBlank()) {
-                tooltipEntries.add(new TooltipEntry(button, List.of(Text.literal(description))));
+            if (description != null) {
+                tooltipEntries.add(new TooltipEntry(button, List.of(description)));
             }
             return BUTTON_HEIGHT + SPACING;
         }
@@ -280,9 +326,9 @@ public class ModMenuIntegration implements ModMenuApi {
                 y,
                 BUTTON_WIDTH,
                 TEMPLATE_FIELD_HEIGHT,
-                Text.literal("Filename Template")
+                Text.translatable("screen.screenshotmetadata.config.template.field")
             );
-            templateField.setPlaceholder(Text.literal("{date}_{dimension}_X{x}_Z{z}"));
+            templateField.setPlaceholder(Text.translatable("screen.screenshotmetadata.config.template.placeholder"));
             templateField.setMaxLength(120);
             templateField.setText(config.screenshotNameTemplate == null ? "" : config.screenshotNameTemplate);
             templateField.setChangedListener(newValue -> {
@@ -296,7 +342,7 @@ public class ModMenuIntegration implements ModMenuApi {
             int smallButtonWidth = (BUTTON_WIDTH - 6) / 2;
 
             ButtonWidget defaultsButton = ButtonWidget.builder(
-                    Text.literal("Default").formatted(Formatting.GRAY),
+                    Text.translatable("screen.screenshotmetadata.config.template.default").formatted(Formatting.GRAY),
                     btn -> {
                         config.screenshotNameTemplate = "{date}_{dimension}_X{x}_Z{z}";
                         templateField.setText(config.screenshotNameTemplate);
@@ -307,7 +353,7 @@ public class ModMenuIntegration implements ModMenuApi {
             this.addDrawableChild(defaultsButton);
 
             ButtonWidget biomeTimeButton = ButtonWidget.builder(
-                    Text.literal("Biome+Time").formatted(Formatting.AQUA),
+                    Text.translatable("screen.screenshotmetadata.config.template.biome_time").formatted(Formatting.AQUA),
                     btn -> {
                         config.screenshotNameTemplate = "{biome}_{time}";
                         templateField.setText(config.screenshotNameTemplate);
@@ -318,26 +364,73 @@ public class ModMenuIntegration implements ModMenuApi {
             this.addDrawableChild(biomeTimeButton);
 
             tooltipEntries.add(new TooltipEntry(defaultsButton, List.of(
-                Text.literal("Use the recommended default template")
+                Text.translatable("screen.screenshotmetadata.config.template.default.tip")
             )));
             tooltipEntries.add(new TooltipEntry(biomeTimeButton, List.of(
-                Text.literal("Quick preset for biome + time naming")
+                Text.translatable("screen.screenshotmetadata.config.template.biome_time.tip")
             )));
 
             return TEMPLATE_FIELD_HEIGHT + 16 + TEMPLATE_HELP_HEIGHT + SPACING;
         }
 
-        private static Text createModernToggleText(String icon, boolean enabled) {
-            String statusText = enabled ? "[ON]" : "[OFF]";
-            Formatting color = enabled ? Formatting.GREEN : Formatting.GRAY;
-            return Text.literal(statusText + " ").formatted(color)
-                .append(Text.literal(icon).formatted(Formatting.WHITE));
+        private int addTagPresetsEditor(int centerX, int y, ScreenshotMetadataConfig config) {
+            int fieldX = centerX - BUTTON_WIDTH / 2;
+            tagPresetsFieldY = y;
+            tagPresetsField = new TextFieldWidget(
+                this.textRenderer,
+                fieldX,
+                y,
+                BUTTON_WIDTH,
+                TAG_PRESET_FIELD_HEIGHT,
+                Text.translatable("screen.screenshotmetadata.config.tags.field")
+            );
+            tagPresetsField.setPlaceholder(Text.translatable("screen.screenshotmetadata.config.tags.placeholder"));
+            tagPresetsField.setMaxLength(200);
+            tagPresetsField.setText(joinTagPresets(config.tagPresets));
+            tagPresetsField.setChangedListener(newValue -> config.tagPresets = parseTagPresets(newValue));
+            this.addDrawableChild(tagPresetsField);
+            return TAG_PRESET_FIELD_HEIGHT + TAG_PRESET_HELP_HEIGHT + SPACING;
         }
 
-        private static void updateButtonText(ButtonWidget button, boolean enabled) {
-            String currentText = button.getMessage().getString();
-            // Extract label from current text
-            String label = currentText.replaceAll("^\\[ON\\]\\s+|^\\[OFF\\]\\s+", "");
+        private static List<String> parseTagPresets(String rawTags) {
+            List<String> tags = new ArrayList<>();
+            if (rawTags == null || rawTags.isBlank()) {
+                return tags;
+            }
+            String[] parts = rawTags.split(",");
+            for (String part : parts) {
+                String trimmed = part.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                boolean exists = tags.stream().anyMatch(existing -> existing.equalsIgnoreCase(trimmed));
+                if (!exists) {
+                    tags.add(trimmed);
+                }
+            }
+            return tags;
+        }
+
+        private static String joinTagPresets(List<String> tags) {
+            if (tags == null || tags.isEmpty()) {
+                return "";
+            }
+            return String.join(", ", tags);
+        }
+
+        private static Text createModernToggleText(Text label, boolean enabled) {
+            String statusKey = enabled
+                ? "screen.screenshotmetadata.toggle.on"
+                : "screen.screenshotmetadata.toggle.off";
+            Formatting color = enabled ? Formatting.GREEN : Formatting.GRAY;
+            return Text.literal("[")
+                .formatted(color)
+                .append(Text.translatable(statusKey).formatted(color))
+                .append(Text.literal("] ").formatted(color))
+                .append(label.copy().formatted(Formatting.WHITE));
+        }
+
+        private static void updateButtonText(ButtonWidget button, Text label, boolean enabled) {
             button.setMessage(createModernToggleText(label, enabled));
         }
 
@@ -358,6 +451,7 @@ public class ModMenuIntegration implements ModMenuApi {
             config.privacyMode = false;
             config.renameScreenshots = false;
             config.screenshotNameTemplate = "{date}_{dimension}_X{x}_Z{z}";
+            config.tagPresets = ScreenshotMetadataConfig.defaultTagPresets();
             ScreenshotMetadataConfig.save();
             this.init();
         }
@@ -380,20 +474,23 @@ public class ModMenuIntegration implements ModMenuApi {
             boolean compactHeader = headerHeight <= 42;
             if (compactHeader) {
                 context.drawCenteredTextWithShadow(this.textRenderer,
-                    Text.literal("Screenshot Metadata v" + ScreenshotMetadataMod.MOD_VERSION)
+                    Text.translatable("screen.screenshotmetadata.config.header.compact", ScreenshotMetadataMod.MOD_VERSION)
                         .formatted(Formatting.BOLD, Formatting.AQUA),
                     centerX, 10, 0xA0EFFF);
             } else {
                 context.drawCenteredTextWithShadow(this.textRenderer,
-                    Text.literal("Screenshot Metadata Configuration").formatted(Formatting.BOLD, Formatting.AQUA),
+                    Text.translatable("screen.screenshotmetadata.config.header.title")
+                        .formatted(Formatting.BOLD, Formatting.AQUA),
                     centerX, 10, 0x88FFFF);
 
                 context.drawCenteredTextWithShadow(this.textRenderer,
-                    Text.literal("Customize what metadata gets saved with your screenshots").formatted(Formatting.GRAY),
+                    Text.translatable("screen.screenshotmetadata.config.header.subtitle")
+                        .formatted(Formatting.GRAY),
                     centerX, 26, 0xAAAAAA);
 
                 context.drawCenteredTextWithShadow(this.textRenderer,
-                    Text.literal("Version " + ScreenshotMetadataMod.MOD_VERSION).formatted(Formatting.DARK_GRAY),
+                    Text.translatable("screen.screenshotmetadata.config.header.version", ScreenshotMetadataMod.MOD_VERSION)
+                        .formatted(Formatting.DARK_GRAY),
                     centerX, 40, 0x666666);
             }
 
@@ -402,6 +499,7 @@ public class ModMenuIntegration implements ModMenuApi {
             renderSections(context);
             super.render(context, mouseX, mouseY, delta);
             renderTemplateEditorHelp(context);
+            renderTagPresetHelp(context);
             context.disableScissor();
 
             renderTooltipIfHovered(context, mouseX, mouseY);
@@ -436,7 +534,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 }
                 int textColor = 0xFF000000 | section.color;
                 context.drawCenteredTextWithShadow(this.textRenderer,
-                    Text.literal(section.title).formatted(Formatting.BOLD),
+                    section.title.copy().formatted(Formatting.BOLD),
                     centerX, y, textColor);
                 int lineY = y + SECTION_TITLE_HEIGHT;
                 context.fill(centerX - SECTION_LINE_WIDTH, lineY, centerX + SECTION_LINE_WIDTH, lineY + 1, 0x33FFFFFF);
@@ -496,7 +594,7 @@ public class ModMenuIntegration implements ModMenuApi {
 
             context.drawTextWithShadow(
                 this.textRenderer,
-                Text.literal("{date} {time} {dimension} {biome} {x} {y} {z} {world} {player}")
+                Text.translatable("screen.screenshotmetadata.config.template.tokens")
                     .formatted(Formatting.DARK_GRAY),
                 templateField.getX(),
                 y,
@@ -504,10 +602,30 @@ public class ModMenuIntegration implements ModMenuApi {
             );
             context.drawTextWithShadow(
                 this.textRenderer,
-                Text.literal("Preview: " + templatePreview).formatted(Formatting.GRAY),
+                Text.translatable("screen.screenshotmetadata.config.template.preview", templatePreview)
+                    .formatted(Formatting.GRAY),
                 templateField.getX(),
                 y + 10,
                 0x9B9B9B
+            );
+        }
+
+        private void renderTagPresetHelp(DrawContext context) {
+            if (tagPresetsField == null || tagPresetsFieldY < 0) {
+                return;
+            }
+            int y = tagPresetsFieldY + TAG_PRESET_FIELD_HEIGHT + 4;
+            if (y < contentTop - 16 || y > this.height - 20) {
+                return;
+            }
+
+            context.drawTextWithShadow(
+                this.textRenderer,
+                Text.translatable("screen.screenshotmetadata.config.tags.help")
+                    .formatted(Formatting.DARK_GRAY),
+                tagPresetsField.getX(),
+                y,
+                0x777777
             );
         }
 
@@ -541,7 +659,9 @@ public class ModMenuIntegration implements ModMenuApi {
                 .build();
             this.addDrawableChild(button);
             tooltipEntries.add(new TooltipEntry(button, List.of(
-                Text.literal(collapsed ? "Expand section" : "Collapse section")
+                Text.translatable(collapsed
+                    ? "screen.screenshotmetadata.config.section.expand"
+                    : "screen.screenshotmetadata.config.section.collapse")
             )));
         }
 
@@ -553,10 +673,10 @@ public class ModMenuIntegration implements ModMenuApi {
 
     private static final class Section {
         private final int y;
-        private final String title;
+        private final Text title;
         private final int color;
 
-        private Section(int y, String title, int color) {
+        private Section(int y, Text title, int color) {
             this.y = y;
             this.title = title;
             this.color = color;

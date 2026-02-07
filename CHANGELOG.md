@@ -2,6 +2,12 @@
 
 All notable changes to the Screenshot Metadata Mod are documented here. This changelog focuses on functional changes to the mod itself.
 
+## [Unreleased]
+
+### Added
+- Tag preset buttons in the tag input screen, configurable from ModMenu.
+- Localization keys and `en_us` translations for the config and tag screens.
+
 ## [1.1.0] - 2026-02-04
 
 ### Added

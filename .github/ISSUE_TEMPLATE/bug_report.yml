@@ -1,0 +1,67 @@
+name: Bug report
+description: Report a problem with Screenshot Metadata Mod
+labels:
+  - bug
+body:
+  - type: checkboxes
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I have searched existing issues and this is not a duplicate.
+          required: true
+        - label: I am using the latest release of the mod.
+          required: false
+  - type: input
+    id: minecraft_version
+    attributes:
+      label: Minecraft version
+      placeholder: "1.21.11"
+    validations:
+      required: true
+  - type: input
+    id: fabric_loader
+    attributes:
+      label: Fabric Loader version
+      placeholder: "0.18.4"
+    validations:
+      required: true
+  - type: input
+    id: mod_version
+    attributes:
+      label: Screenshot Metadata Mod version
+      placeholder: "1.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the steps needed to reproduce the issue.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Attach `latest.log` or paste relevant error output.
+      render: shell
+    validations:
+      required: false
