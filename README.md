@@ -124,7 +124,7 @@ cd screenshotmetadata
 cd screenshotmetadata
 ./gradlew build -PmcProfile=beta
 ```
-Beta profile uses official Mojang mappings when Yarn is unavailable.
+Beta profile targets `26.1-snapshot-6` and uses Yarn mappings `25w46a+build.4`.
 
 ### Run in Development
 ```
