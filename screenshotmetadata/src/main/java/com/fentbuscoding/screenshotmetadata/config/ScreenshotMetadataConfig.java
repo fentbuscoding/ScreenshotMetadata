@@ -3,6 +3,9 @@ package com.fentbuscoding.screenshotmetadata.config;
 import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -11,20 +14,12 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 public class ScreenshotMetadataConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String FILE_NAME = "screenshotmetadata.json";
-    private static final List<String> DEFAULT_TAG_PRESETS = List.of(
-        "build",
-        "base",
-        "cave",
-        "nether",
-        "end",
-        "village"
-    );
+    private static final String SCHEMA_FIELD = "configSchemaVersion";
+    private static final int CURRENT_CONFIG_SCHEMA_VERSION = 1;
 
     private static ScreenshotMetadataConfig instance;
     private static boolean loaded;
@@ -46,7 +41,8 @@ public class ScreenshotMetadataConfig {
     public boolean includeBiomeInfo = true;
     public boolean includeWeatherInfo = true;
     public boolean includeModpackContext = true;
-    public List<String> tagPresets = new ArrayList<>(DEFAULT_TAG_PRESETS);
+    public String metadataProfile = MetadataProfile.FULL.id;
+    public int configSchemaVersion = CURRENT_CONFIG_SCHEMA_VERSION;
 
     public static ScreenshotMetadataConfig get() {
         if (instance == null || !loaded) {
@@ -62,12 +58,22 @@ public class ScreenshotMetadataConfig {
         Path configPath = getConfigPath();
         if (Files.exists(configPath)) {
             try (Reader reader = Files.newBufferedReader(configPath)) {
-                instance = GSON.fromJson(reader, ScreenshotMetadataConfig.class);
+                JsonElement parsed = JsonParser.parseReader(reader);
+                JsonObject root = parsed != null && parsed.isJsonObject()
+                    ? parsed.getAsJsonObject()
+                    : new JsonObject();
+                int loadedSchemaVersion = readSchemaVersion(root);
+
+                instance = GSON.fromJson(root, ScreenshotMetadataConfig.class);
                 if (instance == null) {
                     instance = new ScreenshotMetadataConfig();
                 }
+                boolean migrated = instance.migrate(loadedSchemaVersion);
                 instance.normalize();
                 loaded = true;
+                if (migrated) {
+                    save();
+                }
             } catch (IOException | JsonSyntaxException e) {
                 ScreenshotMetadataMod.LOGGER.warn("Failed to read config, using defaults: {}", e.getMessage());
                 instance = new ScreenshotMetadataConfig();
@@ -100,29 +106,170 @@ public class ScreenshotMetadataConfig {
         return FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
     }
 
-    public static List<String> defaultTagPresets() {
-        return new ArrayList<>(DEFAULT_TAG_PRESETS);
+    public MetadataProfile getMetadataProfile() {
+        return MetadataProfile.fromId(metadataProfile);
+    }
+
+    public void setMetadataProfile(MetadataProfile profile) {
+        metadataProfile = profile == null ? MetadataProfile.FULL.id : profile.id;
+    }
+
+    public void applyProfile(MetadataProfile profile) {
+        MetadataProfile resolved = profile == null ? MetadataProfile.FULL : profile;
+        switch (resolved) {
+            case FULL -> {
+                includeWorldSeed = true;
+                includePerformanceMetrics = true;
+                includePlayerStatus = true;
+                includeEquipment = true;
+                includePotionEffects = true;
+                includeCoordinates = true;
+                includeBiomeInfo = true;
+                includeWeatherInfo = true;
+                includeModpackContext = true;
+                privacyMode = false;
+            }
+            case LIGHTWEIGHT -> {
+                includeWorldSeed = false;
+                includePerformanceMetrics = false;
+                includePlayerStatus = false;
+                includeEquipment = false;
+                includePotionEffects = false;
+                includeCoordinates = true;
+                includeBiomeInfo = true;
+                includeWeatherInfo = false;
+                includeModpackContext = false;
+                privacyMode = false;
+            }
+            case PRIVACY -> {
+                includeWorldSeed = true;
+                includePerformanceMetrics = true;
+                includePlayerStatus = true;
+                includeEquipment = true;
+                includePotionEffects = true;
+                includeCoordinates = true;
+                includeBiomeInfo = true;
+                includeWeatherInfo = true;
+                includeModpackContext = false;
+                privacyMode = true;
+            }
+        }
+        metadataProfile = resolved.id;
+    }
+
+    private boolean migrate(int loadedSchemaVersion) {
+        boolean migrated = false;
+
+        if (loadedSchemaVersion < 1) {
+            metadataProfile = inferProfileIdFromCurrentSettings();
+            migrated = true;
+        }
+
+        if (configSchemaVersion != CURRENT_CONFIG_SCHEMA_VERSION) {
+            configSchemaVersion = CURRENT_CONFIG_SCHEMA_VERSION;
+            migrated = true;
+        }
+
+        return migrated;
     }
 
     private void normalize() {
-        if (tagPresets == null) {
-            tagPresets = new ArrayList<>();
-            return;
-        }
-        List<String> cleaned = new ArrayList<>();
-        for (String tag : tagPresets) {
-            if (tag == null) {
-                continue;
-            }
-            String trimmed = tag.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-            boolean exists = cleaned.stream().anyMatch(existing -> existing.equalsIgnoreCase(trimmed));
-            if (!exists) {
-                cleaned.add(trimmed);
+        if (metadataProfile == null || metadataProfile.isBlank()) {
+            metadataProfile = MetadataProfile.FULL.id;
+        } else {
+            MetadataProfile profile = MetadataProfile.fromId(metadataProfile);
+            if (profile == MetadataProfile.FULL && !"full".equalsIgnoreCase(metadataProfile.trim())) {
+                metadataProfile = MetadataProfile.FULL.id;
             }
         }
-        tagPresets = cleaned;
+
+        if (configSchemaVersion <= 0 || configSchemaVersion > CURRENT_CONFIG_SCHEMA_VERSION) {
+            configSchemaVersion = CURRENT_CONFIG_SCHEMA_VERSION;
+        }
+    }
+
+    private String inferProfileIdFromCurrentSettings() {
+        if (matchesProfile(MetadataProfile.FULL)) {
+            return MetadataProfile.FULL.id;
+        }
+        if (matchesProfile(MetadataProfile.LIGHTWEIGHT)) {
+            return MetadataProfile.LIGHTWEIGHT.id;
+        }
+        if (matchesProfile(MetadataProfile.PRIVACY)) {
+            return MetadataProfile.PRIVACY.id;
+        }
+        return MetadataProfile.CUSTOM.id;
+    }
+
+    private boolean matchesProfile(MetadataProfile profile) {
+        return switch (profile) {
+            case FULL -> includeWorldSeed
+                && includePerformanceMetrics
+                && includePlayerStatus
+                && includeEquipment
+                && includePotionEffects
+                && includeCoordinates
+                && includeBiomeInfo
+                && includeWeatherInfo
+                && includeModpackContext
+                && !privacyMode;
+            case LIGHTWEIGHT -> !includeWorldSeed
+                && !includePerformanceMetrics
+                && !includePlayerStatus
+                && !includeEquipment
+                && !includePotionEffects
+                && includeCoordinates
+                && includeBiomeInfo
+                && !includeWeatherInfo
+                && !includeModpackContext
+                && !privacyMode;
+            case PRIVACY -> includeWorldSeed
+                && includePerformanceMetrics
+                && includePlayerStatus
+                && includeEquipment
+                && includePotionEffects
+                && includeCoordinates
+                && includeBiomeInfo
+                && includeWeatherInfo
+                && !includeModpackContext
+                && privacyMode;
+            case CUSTOM -> false;
+        };
+    }
+
+    private static int readSchemaVersion(JsonObject root) {
+        if (root == null || !root.has(SCHEMA_FIELD)) {
+            return 0;
+        }
+        try {
+            return root.get(SCHEMA_FIELD).getAsInt();
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    public enum MetadataProfile {
+        FULL("full"),
+        LIGHTWEIGHT("lightweight"),
+        PRIVACY("privacy"),
+        CUSTOM("custom");
+
+        public final String id;
+
+        MetadataProfile(String id) {
+            this.id = id;
+        }
+
+        public static MetadataProfile fromId(String raw) {
+            if (raw == null || raw.isBlank()) {
+                return FULL;
+            }
+            for (MetadataProfile profile : values()) {
+                if (profile.id.equalsIgnoreCase(raw.trim())) {
+                    return profile;
+                }
+            }
+            return FULL;
+        }
     }
 }

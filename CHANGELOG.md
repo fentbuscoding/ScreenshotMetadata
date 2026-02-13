@@ -4,9 +4,22 @@ All notable changes to the Screenshot Metadata Mod are documented here. This cha
 
 ## [Unreleased]
 
+- No unreleased changes yet.
+
+## [1.2.0] - 2026-02-13
+
 ### Added
-- Tag preset buttons in the tag input screen, configurable from ModMenu.
-- Localization keys and `en_us` translations for the config and tag screens.
+- Capture profiles in ModMenu (`Full`, `Lightweight`, `Privacy`) that apply metadata settings with one click.
+- Privacy section now shows an explicit redaction preview for coordinates, server address, and world seed handling.
+- Added game mode metadata capture (`GameMode`) alongside difficulty.
+
+### Changed
+- Removed keybind-based tag entry flow and shifted configuration to ModMenu only.
+- Config now stores `configSchemaVersion` and auto-migrates older config files on load.
+- Updated development runtime Mod Menu compatibility for Minecraft `1.21.11`.
+
+### Fixed
+- Reduced risk of Mod Menu config screen freezes by removing per-frame UI reinitialization during scrolling.
 
 ## [1.1.0] - 2026-02-04
 

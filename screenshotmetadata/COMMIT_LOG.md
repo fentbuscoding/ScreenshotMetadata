@@ -1,5 +1,14 @@
 # Commit Log
 
+## 2026-02-13
+- chore(release): bump version to 1.2.0
+  - Add ModMenu capture profiles (`Full`, `Lightweight`, `Privacy`) and remove keybind/tag screen flow
+  - Add config schema versioning + migration for older config files
+  - Add privacy redaction preview in ModMenu
+  - Add game mode metadata capture
+  - Fix config screen scrolling freeze risk in ModMenu
+  - Update dev ModMenu runtime compatibility for Minecraft 1.21.11
+
 ## 2026-02-03
 - feat: privacy mode, templates, tags, and ModMenu UX polish (v1.1.0)
   - Add privacy mode (coords obfuscation, server IP hide, seed hash)

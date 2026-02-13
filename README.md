@@ -12,7 +12,7 @@ A Minecraft Fabric mod that automatically adds comprehensive metadata to your sc
 - Player Status: Health, hunger, potion effects, and equipped items
 - Performance Metrics: Render distance and simulation distance
 - Equipment Details: Full armor and item inventory tracking
-- Tags: Optional user-supplied tags for searching and organization
+- Profiles: One-click capture profiles in Mod Menu (Full, Lightweight, Privacy)
 
 ### Flexible Storage Options
 - PNG Text Chunks: Embedded directly in image files for technical tools
@@ -65,20 +65,16 @@ When you take a screenshot, the mod creates:
 3. Right-click any screenshot and select Properties
 4. View metadata in the Details tab
 
-### Tagging Screenshots
-1. Press `T` (default) to open the tag input screen
-2. Type comma-separated tags or click preset buttons
-3. Click Save to apply tags to the next screenshot
-4. Configure presets in ModMenu under the Tags section
-
 ### Configuration
 1. Open Minecraft
 2. From main menu, click Mods
 3. Find Screenshot Metadata and click Config
-4. Toggle options for what metadata to include
-5. Click Save and Close
+4. Pick a capture profile in Mod Menu (Full, Lightweight, Privacy)
+5. Optionally fine-tune individual toggles
+6. Click Save and Close
 
 ### Toggle Options
+- Capture Profiles: Apply curated metadata presets
 - PNG Metadata: Embed data in PNG chunks
 - XMP Sidecar: Create XMP companion files
 - JSON Sidecar: Create JSON companion files
@@ -89,7 +85,6 @@ When you take a screenshot, the mod creates:
 - Potion Effects: Record active status effects
 - Armor and Items: Log equipped items and armor
 - Performance Metrics: Record render and simulation distance
-- Tag Presets: Comma-separated presets for the tag input screen
 
 ## Technical Details
 
@@ -124,7 +119,7 @@ cd screenshotmetadata
 cd screenshotmetadata
 ./gradlew build -PmcProfile=beta
 ```
-Beta profile targets `25w46a` and uses Yarn mappings `25w46a+build.4` (26.1 snapshot line) with the Fabric key-binding module.
+Beta profile targets `25w46a` and uses Yarn mappings `25w46a+build.4` (26.1 snapshot line).
 
 ### Run in Development
 ```

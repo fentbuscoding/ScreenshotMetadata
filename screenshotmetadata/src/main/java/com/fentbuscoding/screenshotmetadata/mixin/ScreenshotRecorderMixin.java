@@ -364,14 +364,16 @@ public class ScreenshotRecorderMixin {
             metadata.put("ModVersion", ScreenshotMetadataMod.MOD_VERSION);
             metadata.put("ModId", ScreenshotMetadataMod.MOD_ID);
 
-            // Player Status - Game Mode
-            if (config.includePlayerStatus && client.player != null && client.world != null) {
-                try {
-                    // Try to get difficulty as proxy for game mode info
-                    metadata.put("Difficulty", client.world.getDifficulty().getName());
-                } catch (Exception e) {
-                    ScreenshotMetadataMod.LOGGER.debug("Could not get difficulty", e);
+            // Player status metadata
+            if (config.includePlayerStatus) {
+                if (client.world != null) {
+                    try {
+                        metadata.put("Difficulty", client.world.getDifficulty().getName());
+                    } catch (Exception e) {
+                        ScreenshotMetadataMod.LOGGER.debug("Could not get difficulty", e);
+                    }
                 }
+                addGameModeMetadata(client, metadata);
             }
 
             // Player Health and Hunger
@@ -420,8 +422,6 @@ public class ScreenshotRecorderMixin {
             if (config.includePotionEffects && client.player != null) {
                 addPotionEffectsMetadata(client.player, metadata);
             }
-
-            addPendingTags(metadata);
             
         } catch (Exception e) {
             ScreenshotMetadataMod.LOGGER.error("Error collecting metadata", e);
@@ -575,6 +575,82 @@ public class ScreenshotRecorderMixin {
         int hours = (int) ((timeOfDay / 1000 + 6) % 24);
         int minutes = (int) ((timeOfDay % 1000) * 60 / 1000);
         return String.format("%02d:%02d", hours, minutes);
+    }
+
+    /**
+     * Adds current game mode to metadata when available.
+     * Uses reflection so this remains compatible across stable/snapshot mappings.
+     */
+    private static void addGameModeMetadata(MinecraftClient client, Map<String, String> metadata) {
+        try {
+            if (client == null || client.interactionManager == null) {
+                return;
+            }
+
+            Object mode = invokeIfPresent(client.interactionManager, "getCurrentGameMode");
+            if (mode == null) {
+                mode = invokeIfPresent(client.interactionManager, "getGameMode");
+            }
+            String gameMode = normalizeGameMode(mode);
+            if (gameMode != null && !gameMode.isBlank()) {
+                metadata.put("GameMode", gameMode);
+            }
+        } catch (Exception e) {
+            ScreenshotMetadataMod.LOGGER.debug("Could not collect game mode metadata", e);
+        }
+    }
+
+    private static String normalizeGameMode(Object mode) {
+        if (mode == null) {
+            return null;
+        }
+
+        Object translatable = invokeIfPresent(mode, "getTranslatableName");
+        if (translatable != null) {
+            Object translated = invokeIfPresent(translatable, "getString");
+            if (translated instanceof String value && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+
+        Object asString = invokeIfPresent(mode, "asString");
+        if (asString instanceof String value && !value.isBlank()) {
+            return formatDisplayName(value);
+        }
+
+        String fallback = mode.toString();
+        if (fallback == null || fallback.isBlank()) {
+            return null;
+        }
+        return formatDisplayName(fallback);
+    }
+
+    private static String formatDisplayName(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String normalized = value.trim().replace('-', '_').replace(' ', '_').toLowerCase();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+
+        String[] words = normalized.split("_+");
+        StringBuilder result = new StringBuilder();
+        for (String word : words) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (result.length() > 0) {
+                result.append(' ');
+            }
+            result.append(Character.toUpperCase(word.charAt(0)));
+            if (word.length() > 1) {
+                result.append(word.substring(1));
+            }
+        }
+
+        return result.length() == 0 ? null : result.toString();
     }
 
     /**
@@ -804,36 +880,6 @@ public class ScreenshotRecorderMixin {
         }
         String fallback = pack.toString();
         return fallback != null && !fallback.isBlank() ? fallback : null;
-    }
-
-    private static void addPendingTags(Map<String, String> metadata) {
-        String rawTags = ScreenshotMetadataMod.consumePendingTags();
-        if (rawTags == null || rawTags.isBlank()) {
-            return;
-        }
-
-        List<String> tags = parseTags(rawTags);
-        if (tags.isEmpty()) {
-            return;
-        }
-
-        metadata.put("Tags", String.join(", ", tags));
-        metadata.put("TagCount", String.valueOf(tags.size()));
-    }
-
-    private static List<String> parseTags(String rawTags) {
-        List<String> tags = new ArrayList<>();
-        if (rawTags == null) {
-            return tags;
-        }
-        String[] parts = rawTags.split(",");
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (!trimmed.isEmpty() && !tags.contains(trimmed)) {
-                tags.add(trimmed);
-            }
-        }
-        return tags;
     }
 
     private static int roundToNearest(int value, int step) {

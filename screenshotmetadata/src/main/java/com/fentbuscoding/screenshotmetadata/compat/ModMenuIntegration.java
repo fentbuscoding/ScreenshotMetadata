@@ -2,6 +2,7 @@ package com.fentbuscoding.screenshotmetadata.compat;
 
 import com.fentbuscoding.screenshotmetadata.ScreenshotMetadataMod;
 import com.fentbuscoding.screenshotmetadata.config.ScreenshotMetadataConfig;
+import com.fentbuscoding.screenshotmetadata.config.ScreenshotMetadataConfig.MetadataProfile;
 import com.terraformersmc.modmenu.api.ModMenuApi;
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import net.minecraft.client.gui.DrawContext;
@@ -10,7 +11,6 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import net.minecraft.util.Util;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -41,26 +41,21 @@ public class ModMenuIntegration implements ModMenuApi {
         private static final int SECTION_TOGGLE_SIZE = 16;
         private static final int TEMPLATE_FIELD_HEIGHT = 20;
         private static final int TEMPLATE_HELP_HEIGHT = 26;
-        private static final int TAG_PRESET_FIELD_HEIGHT = 20;
-        private static final int TAG_PRESET_HELP_HEIGHT = 18;
+        private static final int PRIVACY_PREVIEW_HEIGHT = 44;
+        private static final int PROFILE_BUTTON_HEIGHT = 20;
         private static final int SCROLL_STEP = 16;
-        private static final float SCROLL_SMOOTHING = 12.0f;
 
         private final List<Section> sections = new ArrayList<>();
         private final List<TooltipEntry> tooltipEntries = new ArrayList<>();
         private final Map<String, Boolean> collapsedSections = new HashMap<>();
-        private float scrollOffset = 0f;
-        private float targetScrollOffset = 0f;
         private int appliedScrollOffset = 0;
         private int maxScroll = 0;
         private int headerHeight = HEADER_MAX_HEIGHT;
         private int contentTop = HEADER_MAX_HEIGHT + HEADER_PADDING;
-        private long lastScrollUpdateMs = 0L;
         private TextFieldWidget templateField;
         private int templateFieldY = -1;
+        private int privacyPreviewY = -1;
         private String templatePreview = "";
-        private TextFieldWidget tagPresetsField;
-        private int tagPresetsFieldY = -1;
 
         protected ConfigScreen(Screen parent) {
             super(Text.translatable("screen.screenshotmetadata.config.title").formatted(Formatting.BOLD));
@@ -74,12 +69,22 @@ public class ModMenuIntegration implements ModMenuApi {
             this.tooltipEntries.clear();
             this.templateField = null;
             this.templateFieldY = -1;
-            this.tagPresetsField = null;
-            this.tagPresetsFieldY = -1;
+            this.privacyPreviewY = -1;
             ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
             updateLayoutMetrics();
             int centerX = this.width / 2;
             int y = contentTop - appliedScrollOffset;
+
+            // ===== PROFILE SECTION =====
+            y = drawSection(centerX, y, "profiles",
+                Text.translatable("screen.screenshotmetadata.config.section.profiles"),
+                0x88FFD2);
+
+            if (!isCollapsed("profiles")) {
+                y += this.addProfileButtons(centerX, y, config);
+            } else {
+                y += 4;
+            }
 
             // ===== OUTPUT FORMATS SECTION =====
             y = drawSection(centerX, y, "output_formats",
@@ -126,6 +131,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 Text.translatable("screen.screenshotmetadata.config.toggle.world_seed.desc"), config.includeWorldSeed,
                 button -> {
                     config.includeWorldSeed = !config.includeWorldSeed;
+                    markProfileCustom(config);
                     updateButtonText(button, seedLabel, config.includeWorldSeed);
                 });
 
@@ -134,6 +140,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 Text.translatable("screen.screenshotmetadata.config.toggle.biome.desc"), config.includeBiomeInfo,
                 button -> {
                     config.includeBiomeInfo = !config.includeBiomeInfo;
+                    markProfileCustom(config);
                     updateButtonText(button, biomeLabel, config.includeBiomeInfo);
                 });
 
@@ -142,6 +149,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 Text.translatable("screen.screenshotmetadata.config.toggle.coordinates.desc"), config.includeCoordinates,
                 button -> {
                     config.includeCoordinates = !config.includeCoordinates;
+                    markProfileCustom(config);
                     updateButtonText(button, coordsLabel, config.includeCoordinates);
                 });
 
@@ -150,6 +158,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 Text.translatable("screen.screenshotmetadata.config.toggle.weather.desc"), config.includeWeatherInfo,
                 button -> {
                     config.includeWeatherInfo = !config.includeWeatherInfo;
+                    markProfileCustom(config);
                     updateButtonText(button, weatherLabel, config.includeWeatherInfo);
                 });
             } else {
@@ -168,6 +177,7 @@ public class ModMenuIntegration implements ModMenuApi {
                     Text.translatable("screen.screenshotmetadata.config.toggle.privacy.desc"), config.privacyMode,
                     button -> {
                         config.privacyMode = !config.privacyMode;
+                        markProfileCustom(config);
                         updateButtonText(button, privacyLabel, config.privacyMode);
                     });
 
@@ -180,18 +190,7 @@ public class ModMenuIntegration implements ModMenuApi {
                     });
 
                 y += this.addTemplateEditor(centerX, y, config);
-            } else {
-                y += 4;
-            }
-
-            // ===== TAGS SECTION =====
-            y += SECTION_PADDING;
-            y = drawSection(centerX, y, "tags",
-                Text.translatable("screen.screenshotmetadata.config.section.tags"),
-                0x88FFEE);
-
-            if (!isCollapsed("tags")) {
-                y += this.addTagPresetsEditor(centerX, y, config);
+                y += this.addPrivacyPreview(y);
             } else {
                 y += 4;
             }
@@ -208,6 +207,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 Text.translatable("screen.screenshotmetadata.config.toggle.player_status.desc"), config.includePlayerStatus,
                 button -> {
                     config.includePlayerStatus = !config.includePlayerStatus;
+                    markProfileCustom(config);
                     updateButtonText(button, healthLabel, config.includePlayerStatus);
                 });
 
@@ -216,6 +216,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 Text.translatable("screen.screenshotmetadata.config.toggle.potion.desc"), config.includePotionEffects,
                 button -> {
                     config.includePotionEffects = !config.includePotionEffects;
+                    markProfileCustom(config);
                     updateButtonText(button, potionLabel, config.includePotionEffects);
                 });
             } else {
@@ -234,6 +235,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 Text.translatable("screen.screenshotmetadata.config.toggle.equipment.desc"), config.includeEquipment,
                 button -> {
                     config.includeEquipment = !config.includeEquipment;
+                    markProfileCustom(config);
                     updateButtonText(button, equipmentLabel, config.includeEquipment);
                 });
             } else {
@@ -252,6 +254,7 @@ public class ModMenuIntegration implements ModMenuApi {
                 Text.translatable("screen.screenshotmetadata.config.toggle.performance.desc"), config.includePerformanceMetrics,
                 button -> {
                     config.includePerformanceMetrics = !config.includePerformanceMetrics;
+                    markProfileCustom(config);
                     updateButtonText(button, perfLabel, config.includePerformanceMetrics);
                 });
             } else {
@@ -270,6 +273,7 @@ public class ModMenuIntegration implements ModMenuApi {
                     Text.translatable("screen.screenshotmetadata.config.toggle.modpack.desc"), config.includeModpackContext,
                     button -> {
                         config.includeModpackContext = !config.includeModpackContext;
+                        markProfileCustom(config);
                         updateButtonText(button, modpackLabel, config.includeModpackContext);
                     });
             } else {
@@ -294,9 +298,7 @@ public class ModMenuIntegration implements ModMenuApi {
             int contentHeight = Math.max(0, (y + appliedScrollOffset) - contentTop);
             int viewHeight = Math.max(0, this.height - contentTop - CONTENT_BOTTOM_PADDING);
             maxScroll = Math.max(0, contentHeight - viewHeight);
-            targetScrollOffset = clampFloat(targetScrollOffset, 0f, maxScroll);
-            scrollOffset = clampFloat(scrollOffset, 0f, maxScroll);
-            appliedScrollOffset = clampInt(Math.round(scrollOffset), 0, maxScroll);
+            appliedScrollOffset = clampInt(appliedScrollOffset, 0, maxScroll);
         }
 
         private int drawSection(int centerX, int y, String key, Text title, int color) {
@@ -373,49 +375,85 @@ public class ModMenuIntegration implements ModMenuApi {
             return TEMPLATE_FIELD_HEIGHT + 16 + TEMPLATE_HELP_HEIGHT + SPACING;
         }
 
-        private int addTagPresetsEditor(int centerX, int y, ScreenshotMetadataConfig config) {
-            int fieldX = centerX - BUTTON_WIDTH / 2;
-            tagPresetsFieldY = y;
-            tagPresetsField = new TextFieldWidget(
-                this.textRenderer,
-                fieldX,
+        private int addPrivacyPreview(int y) {
+            privacyPreviewY = y;
+            return PRIVACY_PREVIEW_HEIGHT + SPACING;
+        }
+
+        private int addProfileButtons(int centerX, int y, ScreenshotMetadataConfig config) {
+            int smallButtonWidth = (BUTTON_WIDTH - 12) / 3;
+            int x = centerX - BUTTON_WIDTH / 2;
+
+            MetadataProfile active = config.getMetadataProfile();
+            ButtonWidget fullButton = createProfileButton(
+                x,
                 y,
-                BUTTON_WIDTH,
-                TAG_PRESET_FIELD_HEIGHT,
-                Text.translatable("screen.screenshotmetadata.config.tags.field")
+                smallButtonWidth,
+                MetadataProfile.FULL,
+                active == MetadataProfile.FULL,
+                config
             );
-            tagPresetsField.setPlaceholder(Text.translatable("screen.screenshotmetadata.config.tags.placeholder"));
-            tagPresetsField.setMaxLength(200);
-            tagPresetsField.setText(joinTagPresets(config.tagPresets));
-            tagPresetsField.setChangedListener(newValue -> config.tagPresets = parseTagPresets(newValue));
-            this.addDrawableChild(tagPresetsField);
-            return TAG_PRESET_FIELD_HEIGHT + TAG_PRESET_HELP_HEIGHT + SPACING;
+            this.addDrawableChild(fullButton);
+            tooltipEntries.add(new TooltipEntry(fullButton, List.of(
+                Text.translatable("screen.screenshotmetadata.config.profile.full.desc")
+            )));
+
+            ButtonWidget lightButton = createProfileButton(
+                x + smallButtonWidth + 6,
+                y,
+                smallButtonWidth,
+                MetadataProfile.LIGHTWEIGHT,
+                active == MetadataProfile.LIGHTWEIGHT,
+                config
+            );
+            this.addDrawableChild(lightButton);
+            tooltipEntries.add(new TooltipEntry(lightButton, List.of(
+                Text.translatable("screen.screenshotmetadata.config.profile.lightweight.desc")
+            )));
+
+            ButtonWidget privacyButton = createProfileButton(
+                x + (smallButtonWidth + 6) * 2,
+                y,
+                smallButtonWidth,
+                MetadataProfile.PRIVACY,
+                active == MetadataProfile.PRIVACY,
+                config
+            );
+            this.addDrawableChild(privacyButton);
+            tooltipEntries.add(new TooltipEntry(privacyButton, List.of(
+                Text.translatable("screen.screenshotmetadata.config.profile.privacy.desc")
+            )));
+
+            return PROFILE_BUTTON_HEIGHT + SPACING;
         }
 
-        private static List<String> parseTagPresets(String rawTags) {
-            List<String> tags = new ArrayList<>();
-            if (rawTags == null || rawTags.isBlank()) {
-                return tags;
-            }
-            String[] parts = rawTags.split(",");
-            for (String part : parts) {
-                String trimmed = part.trim();
-                if (trimmed.isEmpty()) {
-                    continue;
-                }
-                boolean exists = tags.stream().anyMatch(existing -> existing.equalsIgnoreCase(trimmed));
-                if (!exists) {
-                    tags.add(trimmed);
-                }
-            }
-            return tags;
+        private ButtonWidget createProfileButton(int x,
+                                                 int y,
+                                                 int width,
+                                                 MetadataProfile profile,
+                                                 boolean selected,
+                                                 ScreenshotMetadataConfig config) {
+            Text label = profileLabel(profile, selected);
+            return ButtonWidget.builder(label, btn -> {
+                    config.applyProfile(profile);
+                    ScreenshotMetadataConfig.save();
+                    this.init();
+                })
+                .dimensions(x, y, width, PROFILE_BUTTON_HEIGHT)
+                .build();
         }
 
-        private static String joinTagPresets(List<String> tags) {
-            if (tags == null || tags.isEmpty()) {
-                return "";
-            }
-            return String.join(", ", tags);
+        private Text profileLabel(MetadataProfile profile, boolean selected) {
+            Formatting color = selected ? Formatting.GREEN : Formatting.GRAY;
+            String key = switch (profile) {
+                case FULL -> "screen.screenshotmetadata.config.profile.full";
+                case LIGHTWEIGHT -> "screen.screenshotmetadata.config.profile.lightweight";
+                case PRIVACY -> "screen.screenshotmetadata.config.profile.privacy";
+                case CUSTOM -> "screen.screenshotmetadata.config.profile.custom";
+            };
+            return Text.literal(selected ? "> " : "")
+                .formatted(color)
+                .append(Text.translatable(key).formatted(Formatting.WHITE));
         }
 
         private static Text createModernToggleText(Text label, boolean enabled) {
@@ -434,24 +472,18 @@ public class ModMenuIntegration implements ModMenuApi {
             button.setMessage(createModernToggleText(label, enabled));
         }
 
+        private static void markProfileCustom(ScreenshotMetadataConfig config) {
+            config.setMetadataProfile(MetadataProfile.CUSTOM);
+        }
+
         private void resetDefaults() {
             ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
             config.writePngMetadata = true;
             config.writeXmpSidecar = true;
             config.writeJsonSidecar = true;
-            config.includeWorldSeed = true;
-            config.includePerformanceMetrics = true;
-            config.includePlayerStatus = true;
-            config.includeEquipment = true;
-            config.includePotionEffects = true;
-            config.includeCoordinates = true;
-            config.includeBiomeInfo = true;
-            config.includeWeatherInfo = true;
-            config.includeModpackContext = true;
-            config.privacyMode = false;
+            config.applyProfile(MetadataProfile.FULL);
             config.renameScreenshots = false;
             config.screenshotNameTemplate = "{date}_{dimension}_X{x}_Z{z}";
-            config.tagPresets = ScreenshotMetadataConfig.defaultTagPresets();
             ScreenshotMetadataConfig.save();
             this.init();
         }
@@ -464,8 +496,6 @@ public class ModMenuIntegration implements ModMenuApi {
 
         @Override
         public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-            updateSmoothScroll();
-
             // Modern header background (smaller to avoid cutting content)
             context.fill(0, 0, this.width, headerHeight, 0xCC14192B);
             context.fill(0, headerHeight - 1, this.width, headerHeight, 0xFF1F2750);
@@ -498,8 +528,8 @@ public class ModMenuIntegration implements ModMenuApi {
             context.enableScissor(0, contentTop, this.width, this.height - 6);
             renderSections(context);
             super.render(context, mouseX, mouseY, delta);
+            renderPrivacyPreview(context);
             renderTemplateEditorHelp(context);
-            renderTagPresetHelp(context);
             context.disableScissor();
 
             renderTooltipIfHovered(context, mouseX, mouseY);
@@ -521,7 +551,11 @@ public class ModMenuIntegration implements ModMenuApi {
 
         @Override
         public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-            targetScrollOffset = clampFloat(targetScrollOffset - (float) (verticalAmount * SCROLL_STEP), 0f, maxScroll);
+            int nextOffset = clampInt(appliedScrollOffset - (int) Math.round(verticalAmount * SCROLL_STEP), 0, maxScroll);
+            if (nextOffset != appliedScrollOffset) {
+                appliedScrollOffset = nextOffset;
+                this.init();
+            }
             return true;
         }
 
@@ -547,30 +581,7 @@ public class ModMenuIntegration implements ModMenuApi {
             contentTop = headerHeight + HEADER_PADDING;
         }
 
-        private void updateSmoothScroll() {
-            long nowMs = Util.getMeasuringTimeMs();
-            if (lastScrollUpdateMs == 0L) {
-                lastScrollUpdateMs = nowMs;
-                return;
-            }
-            float deltaSeconds = (nowMs - lastScrollUpdateMs) / 1000f;
-            lastScrollUpdateMs = nowMs;
-
-            float t = 1f - (float) Math.exp(-SCROLL_SMOOTHING * deltaSeconds);
-            scrollOffset += (targetScrollOffset - scrollOffset) * t;
-
-            int nextApplied = clampInt(Math.round(scrollOffset), 0, maxScroll);
-            if (nextApplied != appliedScrollOffset) {
-                appliedScrollOffset = nextApplied;
-                this.init();
-            }
-        }
-
         private static int clampInt(int value, int min, int max) {
-            return Math.max(min, Math.min(value, max));
-        }
-
-        private static float clampFloat(float value, float min, float max) {
             return Math.max(min, Math.min(value, max));
         }
 
@@ -581,6 +592,56 @@ public class ModMenuIntegration implements ModMenuApi {
                     return;
                 }
             }
+        }
+
+        private void renderPrivacyPreview(DrawContext context) {
+            if (privacyPreviewY < 0) {
+                return;
+            }
+            int y = privacyPreviewY;
+            if (y < contentTop - 16 || y > this.height - 40) {
+                return;
+            }
+
+            ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
+            String stateValue = config.privacyMode
+                ? Text.translatable("screen.screenshotmetadata.toggle.on").getString()
+                : Text.translatable("screen.screenshotmetadata.toggle.off").getString();
+
+            int x = this.width / 2 - BUTTON_WIDTH / 2;
+            int titleColor = config.privacyMode ? 0x78D0A0 : 0x9CA3AF;
+            context.drawTextWithShadow(
+                this.textRenderer,
+                Text.translatable("screen.screenshotmetadata.config.privacy.preview.title", stateValue)
+                    .formatted(Formatting.BOLD),
+                x,
+                y,
+                titleColor
+            );
+            context.drawTextWithShadow(
+                this.textRenderer,
+                Text.translatable("screen.screenshotmetadata.config.privacy.preview.coords")
+                    .formatted(Formatting.DARK_GRAY),
+                x,
+                y + 12,
+                0x777777
+            );
+            context.drawTextWithShadow(
+                this.textRenderer,
+                Text.translatable("screen.screenshotmetadata.config.privacy.preview.server")
+                    .formatted(Formatting.DARK_GRAY),
+                x,
+                y + 22,
+                0x777777
+            );
+            context.drawTextWithShadow(
+                this.textRenderer,
+                Text.translatable("screen.screenshotmetadata.config.privacy.preview.seed")
+                    .formatted(Formatting.DARK_GRAY),
+                x,
+                y + 32,
+                0x777777
+            );
         }
 
         private void renderTemplateEditorHelp(DrawContext context) {
@@ -607,25 +668,6 @@ public class ModMenuIntegration implements ModMenuApi {
                 templateField.getX(),
                 y + 10,
                 0x9B9B9B
-            );
-        }
-
-        private void renderTagPresetHelp(DrawContext context) {
-            if (tagPresetsField == null || tagPresetsFieldY < 0) {
-                return;
-            }
-            int y = tagPresetsFieldY + TAG_PRESET_FIELD_HEIGHT + 4;
-            if (y < contentTop - 16 || y > this.height - 20) {
-                return;
-            }
-
-            context.drawTextWithShadow(
-                this.textRenderer,
-                Text.translatable("screen.screenshotmetadata.config.tags.help")
-                    .formatted(Formatting.DARK_GRAY),
-                tagPresetsField.getX(),
-                y,
-                0x777777
             );
         }
 
