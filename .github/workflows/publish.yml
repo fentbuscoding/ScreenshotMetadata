@@ -14,6 +14,9 @@ on:
           - all
           - stable
           - beta
+          - mc26
+          - mc26_1
+          - mc26_2
       version:
         description: 'Version to publish (optional override for mod_version)'
         required: false
@@ -30,6 +33,12 @@ jobs:
           - mc-profile: stable
             java-version: 21
           - mc-profile: beta
+            java-version: 25
+          - mc-profile: mc26
+            java-version: 25
+          - mc-profile: mc26_1
+            java-version: 25
+          - mc-profile: mc26_2
             java-version: 25
     
     steps:

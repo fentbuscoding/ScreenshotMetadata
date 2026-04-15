@@ -18,6 +18,12 @@ jobs:
             java-version: 21
           - mc-profile: beta
             java-version: 25
+          - mc-profile: mc26
+            java-version: 25
+          - mc-profile: mc26_1
+            java-version: 25
+          - mc-profile: mc26_2
+            java-version: 25
         
     steps:
     - name: Checkout repository
