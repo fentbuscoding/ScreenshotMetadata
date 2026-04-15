@@ -25,6 +25,7 @@ public class ScreenshotMetadataConfig {
     private static boolean loaded;
 
     public boolean writePngMetadata = true;
+    public boolean writeEmbeddedXmp = true;
     public boolean writeXmpSidecar = true;
     public boolean writeJsonSidecar = true;
     public boolean includeWorldSeed = true;

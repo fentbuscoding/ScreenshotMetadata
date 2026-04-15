@@ -5,6 +5,7 @@ import com.fentbuscoding.screenshotmetadata.config.ScreenshotMetadataConfig;
 import com.fentbuscoding.screenshotmetadata.metadata.JsonSidecarContext;
 import com.fentbuscoding.screenshotmetadata.metadata.JsonSidecarWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.PngMetadataWriter;
+import com.fentbuscoding.screenshotmetadata.metadata.PngXmpWriter;
 import com.fentbuscoding.screenshotmetadata.metadata.XmpSidecarWriter;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
@@ -682,6 +683,15 @@ public class ScreenshotRecorderMixin {
         if (config.writePngMetadata) {
             if (!writePngMetadataWithRetry(screenshotFile, metadata)) {
                 ScreenshotMetadataMod.LOGGER.error("Failed to write PNG metadata to {}", screenshotFile.getName());
+            }
+        }
+
+        // Embed XMP metadata directly in the PNG (compatible with screenshot-manager-enhanced)
+        if (config.writeEmbeddedXmp) {
+            try {
+                PngXmpWriter.writeMetadata(screenshotFile, metadata);
+            } catch (Exception e) {
+                ScreenshotMetadataMod.LOGGER.error("Failed to write embedded XMP to {}", screenshotFile.getName(), e);
             }
         }
         

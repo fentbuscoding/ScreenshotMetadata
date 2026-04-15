@@ -100,6 +100,14 @@ public class ModMenuIntegration implements ModMenuApi {
                     updateButtonText(button, pngLabel, config.writePngMetadata);
                 });
             
+                Text embeddedXmpLabel = Text.translatable("screen.screenshotmetadata.config.toggle.embedded_xmp");
+                y += this.addToggleButton(centerX, y, embeddedXmpLabel,
+                Text.translatable("screen.screenshotmetadata.config.toggle.embedded_xmp.desc"), config.writeEmbeddedXmp,
+                button -> {
+                    config.writeEmbeddedXmp = !config.writeEmbeddedXmp;
+                    updateButtonText(button, embeddedXmpLabel, config.writeEmbeddedXmp);
+                });
+
                 Text xmpLabel = Text.translatable("screen.screenshotmetadata.config.toggle.xmp");
                 y += this.addToggleButton(centerX, y, xmpLabel,
                 Text.translatable("screen.screenshotmetadata.config.toggle.xmp.desc"), config.writeXmpSidecar,
@@ -479,6 +487,7 @@ public class ModMenuIntegration implements ModMenuApi {
         private void resetDefaults() {
             ScreenshotMetadataConfig config = ScreenshotMetadataConfig.get();
             config.writePngMetadata = true;
+            config.writeEmbeddedXmp = true;
             config.writeXmpSidecar = true;
             config.writeJsonSidecar = true;
             config.applyProfile(MetadataProfile.FULL);

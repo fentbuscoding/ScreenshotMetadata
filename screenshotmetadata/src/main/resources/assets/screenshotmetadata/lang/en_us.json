@@ -12,6 +12,8 @@
   "screen.screenshotmetadata.config.section.collapse": "Collapse section",
   "screen.screenshotmetadata.config.toggle.png": "PNG Metadata",
   "screen.screenshotmetadata.config.toggle.png.desc": "Embed metadata in PNG chunks",
+  "screen.screenshotmetadata.config.toggle.embedded_xmp": "Embedded XMP",
+  "screen.screenshotmetadata.config.toggle.embedded_xmp.desc": "Embed XMP metadata inside the PNG (compatible with screenshot-manager-enhanced)",
   "screen.screenshotmetadata.config.toggle.xmp": "XMP Sidecar",
   "screen.screenshotmetadata.config.toggle.xmp.desc": "Create .xmp companion files",
   "screen.screenshotmetadata.config.toggle.json": "JSON Sidecar",
