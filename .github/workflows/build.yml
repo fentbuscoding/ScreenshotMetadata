@@ -73,7 +73,14 @@ jobs:
       
     - name: Build with Gradle (${{ matrix.mc-profile }})
       run: cd screenshotmetadata && ./gradlew clean build -PmcProfile=${{ matrix.mc-profile }} --no-configuration-cache
-      
+
+    - name: Publish to Modrinth and CurseForge (${{ matrix.mc-profile }})
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: cd screenshotmetadata && ./gradlew publishMods -PmcProfile=${{ matrix.mc-profile }} --no-configuration-cache
+      env:
+        MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+        CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v7
       if: success()
