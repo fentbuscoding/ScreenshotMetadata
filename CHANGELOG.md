@@ -2,6 +2,26 @@
 
 All notable changes to the Screenshot Metadata Mod are documented here. This changelog focuses on functional changes to the mod itself.
 
+## [1.3.3] - 2026-04-15
+
+### Added
+- Build and release support for Minecraft 1.21.1 through 1.21.10 with Fabric Loader 0.19.1 and ModMenu support:
+  - 1.21.1 — Fabric API 0.116.11, ModMenu 11.0.4
+  - 1.21.2 — Fabric API 0.106.1, ModMenu 12.0.1
+  - 1.21.3 — Fabric API 0.114.1, ModMenu 12.0.1
+  - 1.21.4 — Fabric API 0.119.4, ModMenu 13.0.4
+  - 1.21.5 — Fabric API 0.128.2, ModMenu 14.0.2
+  - 1.21.6 — Fabric API 0.128.2, ModMenu 15.0.2
+  - 1.21.7 — Fabric API 0.129.0, ModMenu 15.0.2
+  - 1.21.8 — Fabric API 0.136.1, ModMenu 15.0.2
+  - 1.21.9 — Fabric API 0.134.1, ModMenu 16.0.1
+  - 1.21.10 — Fabric API 0.138.4, ModMenu 16.0.1
+- Automatic publishing to Modrinth and CurseForge on release (all supported MC versions)
+- XMP sidecar files (`.xmp`) are written alongside each screenshot, embedding player name, world, coordinates, biome, weather, tags, and timestamp in an industry-standard format readable by Windows File Explorer and photo management tools
+
+### Fixed
+- Resolved intermittent HTTP 400 errors when resolving ModMenu from the TerraformersMC Maven repository by restricting Gradle to Maven POM metadata only (the server does not serve Gradle module metadata files)
+
 ## [Unreleased]
 
 - No unreleased changes yet.
