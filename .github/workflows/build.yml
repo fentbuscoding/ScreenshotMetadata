@@ -18,12 +18,35 @@ jobs:
             java-version: 21
           - mc-profile: beta
             java-version: 25
-          - mc-profile: mc26
-            java-version: 25
-          - mc-profile: mc26_1
-            java-version: 25
-          - mc-profile: mc26_2
-            java-version: 25
+          - mc-profile: mc1_21_10
+            java-version: 21
+          - mc-profile: mc1_21_9
+            java-version: 21
+          - mc-profile: mc1_21_8
+            java-version: 21
+          - mc-profile: mc1_21_7
+            java-version: 21
+          - mc-profile: mc1_21_6
+            java-version: 21
+          - mc-profile: mc1_21_5
+            java-version: 21
+          - mc-profile: mc1_21_4
+            java-version: 21
+          - mc-profile: mc1_21_3
+            java-version: 21
+          - mc-profile: mc1_21_2
+            java-version: 21
+          - mc-profile: mc1_21_1
+            java-version: 21
+          # mc26/mc26_1/mc26_2 disabled: Mojang dropped proguard maps from 26.x version manifests,
+          # and Fabric has not yet published Yarn or intermediary support for MC 26.x.
+          # Re-enable these once Fabric Loom supports MC 26.x mappings.
+          # - mc-profile: mc26
+          #   java-version: 25
+          # - mc-profile: mc26_1
+          #   java-version: 25
+          # - mc-profile: mc26_2
+          #   java-version: 25
         
     steps:
     - name: Checkout repository

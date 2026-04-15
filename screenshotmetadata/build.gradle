@@ -7,7 +7,9 @@ plugins {
 	id 'me.modmuss50.mod-publish-plugin' version '1.1.0'
 }
 
-def supportedProfiles = ["stable", "beta", "mc26", "mc26_1", "mc26_2"]
+def supportedProfiles = ["stable", "beta", "mc26", "mc26_1", "mc26_2",
+		"mc1_21_1", "mc1_21_2", "mc1_21_3", "mc1_21_4", "mc1_21_5",
+		"mc1_21_6", "mc1_21_7", "mc1_21_8", "mc1_21_9", "mc1_21_10"]
 def mcProfile = providers.gradleProperty("mcProfile")
 		.orElse(providers.gradleProperty("default_mc_profile"))
 		.get()
@@ -67,8 +69,9 @@ dependencies {
 	}
 
 	modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
-	modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
-	modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
+	def modmenuVersion = project.findProperty("${mcProfile}_modmenu_version")?.toString() ?: project.modmenu_version
+	modCompileOnly "com.terraformersmc:modmenu:${modmenuVersion}"
+	modLocalRuntime "com.terraformersmc:modmenu:${modmenuVersion}"
 }
 
 processResources {
