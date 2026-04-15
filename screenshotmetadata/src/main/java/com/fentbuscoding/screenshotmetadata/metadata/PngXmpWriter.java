@@ -116,63 +116,52 @@ public class PngXmpWriter {
      */
     private static String buildXmpPacket(Map<String, String> metadata) {
         StringBuilder xmp = new StringBuilder();
-        xmp.append("<?xpacket begin=\"\uFEFF\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n");
-        xmp.append("<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n");
-        xmp.append(" <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\"\n");
-        xmp.append("          xmlns:dc=\"http://purl.org/dc/elements/1.1/\"\n");
-        xmp.append("          xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\"\n");
-        xmp.append("          xmlns:mc=\"http://fentbuscoding.com/minecraft/ns/\">\n");
-        xmp.append("  <rdf:Description rdf:about=\"\">\n");
+        xmp.append("<x:xmpmeta xmlns:x='adobe:ns:meta/' >\n");
+        xmp.append(" <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>\n");
+        xmp.append("    <rdf:Description rdf:about=''\n");
+        xmp.append("        xmlns:dc='http://purl.org/dc/elements/1.1/'\n");
+        xmp.append("        xmlns:xmp='http://ns.adobe.com/xap/1.0/'\n");
+        xmp.append("        xmlns:mc='http://milezerosoftware.com/mc/1.0/'>\n");
 
         addDublinCoreFields(xmp, metadata);
         addXmpBasicFields(xmp, metadata);
         addMinecraftFields(xmp, metadata);
 
-        xmp.append("  </rdf:Description>\n");
+        xmp.append("    </rdf:Description>\n");
         xmp.append(" </rdf:RDF>\n");
-        xmp.append("</x:xmpmeta>\n");
-        xmp.append("<?xpacket end=\"w\"?>");
+        xmp.append("</x:xmpmeta>");
         return xmp.toString();
     }
 
     private static void addDublinCoreFields(StringBuilder xmp, Map<String, String> metadata) {
+        // Use rdf:Alt structure for dc:title and dc:description to match XMP spec
+        // and screenshot-manager-enhanced format
         String title = "Minecraft - " + metadata.getOrDefault("Username", "Unknown Player");
-        xmp.append("   <dc:title>").append(escapeXml(title)).append("</dc:title>\n");
+        xmp.append("      <dc:title>\n");
+        xmp.append("        <rdf:Alt>\n");
+        xmp.append("          <rdf:li xml:lang='x-default'>").append(escapeXml(title)).append("</rdf:li>\n");
+        xmp.append("        </rdf:Alt>\n");
+        xmp.append("      </dc:title>\n");
 
-        StringBuilder description = new StringBuilder("Minecraft Screenshot");
-        if (metadata.containsKey("Username")) {
-            description.append(" - Player: ").append(metadata.get("Username"));
-        }
-        if (metadata.containsKey("World")) {
-            description.append(" | World: ").append(metadata.get("World"));
-        }
+        StringBuilder description = new StringBuilder();
+        String worldName = metadata.getOrDefault("WorldName", metadata.getOrDefault("World", ""));
+        String dimension = metadata.getOrDefault("Dimension", "");
+        String coords = "";
         if (metadata.containsKey("X") && metadata.containsKey("Y") && metadata.containsKey("Z")) {
-            description.append(" | Coords: (")
-                    .append(metadata.get("X")).append(", ")
-                    .append(metadata.get("Y")).append(", ")
-                    .append(metadata.get("Z")).append(")");
+            coords = metadata.get("X") + ", " + metadata.get("Y") + ", " + metadata.get("Z");
         }
-        if (metadata.containsKey("Biome")) {
-            description.append(" | Biome: ").append(metadata.get("Biome"));
-        }
-        xmp.append("   <dc:description>").append(escapeXml(description.toString())).append("</dc:description>\n");
-
-        String creator = metadata.getOrDefault("Username", "Unknown Player");
-        xmp.append("   <dc:creator>").append(escapeXml(creator)).append("</dc:creator>\n");
-
-        String subject = "Minecraft Screenshot";
-        if (metadata.containsKey("Tags")) {
-            String tags = metadata.get("Tags");
-            if (tags != null && !tags.isBlank()) {
-                subject = subject + ", " + tags;
-            }
-        }
-        xmp.append("   <dc:subject>").append(escapeXml(subject)).append("</dc:subject>\n");
-        xmp.append("   <dc:type>Image</dc:type>\n");
+        description.append("World: ").append(worldName.isEmpty() ? "Unknown" : worldName)
+                .append(" | Dim: ").append(dimension.isEmpty() ? "Unknown" : dimension)
+                .append(" | Loc: ").append(coords.isEmpty() ? "Unknown" : coords);
+        xmp.append("      <dc:description>\n");
+        xmp.append("        <rdf:Alt>\n");
+        xmp.append("          <rdf:li xml:lang='x-default'>").append(escapeXml(description.toString())).append("</rdf:li>\n");
+        xmp.append("        </rdf:Alt>\n");
+        xmp.append("      </dc:description>\n");
     }
 
     private static void addXmpBasicFields(StringBuilder xmp, Map<String, String> metadata) {
-        xmp.append("   <xmp:CreatorTool>Screenshot Metadata Mod v")
+        xmp.append("      <xmp:CreatorTool>Screenshot Metadata Mod v")
                 .append(escapeXml(ScreenshotMetadataMod.MOD_VERSION))
                 .append("</xmp:CreatorTool>\n");
 
@@ -180,8 +169,8 @@ public class PngXmpWriter {
             try {
                 Instant timestamp = Instant.parse(metadata.get("Timestamp"));
                 String formattedDate = DateTimeFormatter.ISO_INSTANT.format(timestamp);
-                xmp.append("   <xmp:CreateDate>").append(formattedDate).append("</xmp:CreateDate>\n");
-                xmp.append("   <xmp:ModifyDate>").append(formattedDate).append("</xmp:ModifyDate>\n");
+                xmp.append("      <xmp:CreateDate>").append(formattedDate).append("</xmp:CreateDate>\n");
+                xmp.append("      <xmp:ModifyDate>").append(formattedDate).append("</xmp:ModifyDate>\n");
             } catch (Exception e) {
                 ScreenshotMetadataMod.LOGGER.debug("Could not parse timestamp: {}", metadata.get("Timestamp"));
             }
@@ -189,41 +178,34 @@ public class PngXmpWriter {
     }
 
     private static void addMinecraftFields(StringBuilder xmp, Map<String, String> metadata) {
-        appendIfPresent(xmp, "mc:world", metadata, "World");
-        appendIfPresent(xmp, "mc:dimension", metadata, "Dimension");
-        appendIfPresent(xmp, "mc:biome", metadata, "Biome");
+        // Use PascalCase property names matching screenshot-manager-enhanced's mc namespace
+        appendIfPresent(xmp, "mc:WorldTitle", metadata, "WorldName", "World");
+        appendIfPresent(xmp, "mc:Dimension", metadata, "Dimension");
+        appendIfPresent(xmp, "mc:Biome", metadata, "Biome");
 
         if (metadata.containsKey("X") && metadata.containsKey("Y") && metadata.containsKey("Z")) {
             String coords = metadata.get("X") + ", " + metadata.get("Y") + ", " + metadata.get("Z");
-            xmp.append("   <mc:coordinates>").append(escapeXml(coords)).append("</mc:coordinates>\n");
-            xmp.append("   <mc:x>").append(escapeXml(metadata.get("X"))).append("</mc:x>\n");
-            xmp.append("   <mc:y>").append(escapeXml(metadata.get("Y"))).append("</mc:y>\n");
-            xmp.append("   <mc:z>").append(escapeXml(metadata.get("Z"))).append("</mc:z>\n");
+            xmp.append("      <mc:Coordinates>").append(escapeXml(coords)).append("</mc:Coordinates>\n");
         }
 
-        appendIfPresent(xmp, "mc:player", metadata, "Username");
-        appendIfPresent(xmp, "mc:worldName", metadata, "WorldName");
-        appendIfPresent(xmp, "mc:weather", metadata, "Weather");
-        appendIfPresent(xmp, "mc:difficulty", metadata, "Difficulty");
-        appendIfPresent(xmp, "mc:gameMode", metadata, "GameMode");
-        appendIfPresent(xmp, "mc:minecraftVersion", metadata, "MinecraftVersion");
-        appendIfPresent(xmp, "mc:serverType", metadata, "ServerType");
-
-        if (metadata.containsKey("Tags")) {
-            String tags = metadata.get("Tags");
-            if (tags != null && !tags.isBlank()) {
-                xmp.append("   <mc:tags>").append(escapeXml(tags)).append("</mc:tags>\n");
-            }
-        }
+        appendIfPresent(xmp, "mc:Difficulty", metadata, "Difficulty");
+        appendIfPresent(xmp, "mc:Version", metadata, "MinecraftVersion");
+        appendIfPresent(xmp, "mc:GameMode", metadata, "GameMode");
+        appendIfPresent(xmp, "mc:Player", metadata, "Username");
+        appendIfPresent(xmp, "mc:Weather", metadata, "Weather");
+        appendIfPresent(xmp, "mc:ServerType", metadata, "ServerType");
     }
 
-    private static void appendIfPresent(StringBuilder xmp, String element, Map<String, String> metadata, String key) {
-        if (metadata.containsKey(key)) {
-            String value = metadata.get(key);
-            if (value != null && !value.isBlank()) {
-                xmp.append("   <").append(element).append(">")
-                        .append(escapeXml(value))
-                        .append("</").append(element).append(">\n");
+    private static void appendIfPresent(StringBuilder xmp, String element, Map<String, String> metadata, String... keys) {
+        for (String key : keys) {
+            if (metadata.containsKey(key)) {
+                String value = metadata.get(key);
+                if (value != null && !value.isBlank()) {
+                    xmp.append("      <").append(element).append(">")
+                            .append(escapeXml(value))
+                            .append("</").append(element).append(">\n");
+                    return;
+                }
             }
         }
     }
